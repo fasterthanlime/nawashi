@@ -1,5 +1,5 @@
 require "collar/version"
+require "collar/translator"
 
 module Collar
-  # Your code goes here...
 end
