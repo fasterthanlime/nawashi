@@ -21,9 +21,12 @@ The basic idea is:
 ## Scope & Limitations
 
   - Binds static & non-static methods
-  - Doesn't bind member variables yet
+  - Binds properties with ES5 Object.defineProperty
+
+But:
+
   - Doesn't bind covers yet
-  - Probably doesn't do the right thing with methods that take ooc arrays
+  - Ignores: references, ooc arrays, generics, varargs
 
 ## Hopes & Dreams
 
