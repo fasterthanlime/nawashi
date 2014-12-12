@@ -34,11 +34,13 @@ module Collar
       @spec.uses.each do |uze|
         f << "use #{uze}"
       end
+      f.nl
 
       @spec.globalImports.each do |imp|
         next if imp.start_with?("lang/")
         f << "import #{imp}"
       end
+      f.nl
 
       classes = @spec.entities.select do |en|
         en[1].type == "class"
@@ -99,14 +101,14 @@ module Collar
       unless mdef.returnType.nil?
         return unless supported_type?(mdef.returnType)
       end
-      return unless mdef.genericTypes.nil?
+      return unless mdef.genericTypes.empty?
 
       ooc_name = unmangle(mdef.name)
       mangled_name = mdef.name.gsub(/~/, '_')
       static = mdef.modifiers.include? 'static'
 
       class_binding = Hashie::Mash.new(
-        :wrapper => "_duk_#{mdef.fullName}_accessor",
+        :wrapper => "_duk_#{mdef.fullName}",
         :nargs => mdef.arguments.length,
         :name => mangled_name,
       )
@@ -152,10 +154,9 @@ module Collar
 
       ooc_name = unmangle(fdef.name)
       mangled_name = fdef.name.gsub(/~/, '_')
-      static = fdef.modifiers.include? 'static'
 
       class_binding = Hashie::Mash.new(
-        :wrapper => "_duk_#{cl[1].fullName}_#{ooc_name}",
+        :wrapper => "_duk_#{cl[1].fullName}_#{ooc_name}_accessor",
         :nargs => 1,
         :name => mangled_name,
       )

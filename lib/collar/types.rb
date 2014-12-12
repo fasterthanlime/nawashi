@@ -13,6 +13,10 @@ module Collar
         "Int"
       when NUM_TYPE_RE
         "Number"
+      when /C?String/
+        "String"
+      when "Bool"
+        "Boolean"
       else
         "Ooc"
       end
