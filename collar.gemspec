@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["fasterthanlime@gmail.com"]
   spec.summary       = %q{Generate duktape bindings for ooc code}
   spec.description   = %q{Uses rock's JSON backend to generate boilerplate for the Duktape JavaScript engine}
-  spec.homepage      = ""
+  spec.homepage      = "https://github.com/fasterthanlime/collar"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0")
