@@ -1,5 +1,5 @@
 require "collar/version"
-require "collar/translator"
+require "collar/driver"
 
 module Collar
 end

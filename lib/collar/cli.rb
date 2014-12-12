@@ -24,8 +24,8 @@ module Collar
 
       universe = ARGV[0]
 
-      tr = Collar::Translator.new(opts, universe)
-      tr.translate
+      tr = Collar::Driver.new(opts, universe)
+      tr.doall
       puts "Success!"
     end
   end
