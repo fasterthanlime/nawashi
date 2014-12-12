@@ -17,7 +17,14 @@ module Collar
         exit 0
       end
 
-      tr = Collar::Translator.new(opts)
+      if ARGV.length < 1
+        puts "collar: needs universe source path"
+        exit 1
+      end
+
+      universe = ARGV[0]
+
+      tr = Collar::Translator.new(opts, universe)
       tr.translate
       puts "Success!"
     end
