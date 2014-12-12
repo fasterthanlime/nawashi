@@ -44,14 +44,12 @@ module Collar
       f << "use duktape"
       f << "import duk/tape, collar/extensions"
 
-      jsons.select { |x| x.include? "math" }.each do |path|
+      jsons.each do |path|
         spec = Hashie::Mash.new(JSON.load(File.read(path)))
         tr = Collar::Translator.new(@opts, spec, all_bindings)
         tr.translate
 
         f << "import #{tr.import_path}"
-
-        break
       end
 
       f << "_bind_all: func (duk: DukContext) {"
