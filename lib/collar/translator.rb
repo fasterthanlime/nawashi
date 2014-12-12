@@ -50,18 +50,19 @@ module Collar
         class_name = cl[1].fullName
         puts "[Class] #{class_name}"
 
-        class_bindings = []
+        method_bindings = []
+        property_bindings = []
 
         cl[1].members.each do |mb|
           next if (mb[0].start_with?('__')) || MEMBERS_BLACKLIST.include?(mb[0])
 
           case mb[1].type
           when 'method'
-            translate_method(f, mb[1], cl[1].name, class_bindings)
+            translate_method(f, mb[1], cl[1].name, method_bindings)
           when 'field'
             # TODO: handle properties :)
             next unless mb[1].propertyData.nil?
-            translate_field(f, mb[1], cl, class_bindings)
+            translate_field(f, mb[1], cl, property_bindings)
           end
         end
 
@@ -70,9 +71,28 @@ module Collar
         f << "#{binder_name}: func (duk: DukContext) {"
         f << "  objIdx := duk pushObject()"
         f.nl
-        class_bindings.each do |bin|
+        method_bindings.each do |bin|
           f << "  duk pushCFunction(#{bin.wrapper}, #{bin.nargs})"
           f << "  duk putPropString(objIdx, \"#{bin.name}\")"
+          f.nl
+        end
+        property_bindings.each do |bin|
+          f << "  {"
+          f << "    propIdx := duk pushObject()"
+          f << "    duk pushCFunction(#{bin.getter}, 0)"
+          f << "    duk putPropString(propIdx, \"get\")"
+          f << "    duk pushCFunction(#{bin.setter}, 1)"
+          f << "    duk putPropString(propIdx, \"set\")"
+          f << "    duk getGlobalString(\"Object\")"
+          f << "    duk getPropString(-1, \"defineProperty\")"
+          f << "    duk dup(objIdx)"
+          f << "    duk pushString(\"#{bin.name}\")"
+          f << "    duk dup(propIdx)"
+          f << "    if (duk pcall(3) != 0) {"
+          f << "      raise(\"Failed to define property #{bin.name}: \#{duk safeToString(-1)}\")"
+          f << "    }"
+          f << "    duk pop3() // discard return value, Object and property handler"
+          f << "  }"
           f.nl
         end
         f << "  duk putGlobalString(\"#{class_name}\")"
@@ -96,7 +116,7 @@ module Collar
       true
     end
 
-    def translate_method(f, mdef, class_name, class_bindings)
+    def translate_method(f, mdef, class_name, method_bindings)
       return unless mdef.arguments.all? { |arg| supported_type?(arg[1]) }
       unless mdef.returnType.nil?
         return unless supported_type?(mdef.returnType)
@@ -107,14 +127,14 @@ module Collar
       mangled_name = mdef.name.gsub(/~/, '_')
       static = mdef.modifiers.include? 'static'
 
-      class_binding = Hashie::Mash.new(
+      method_binding = Hashie::Mash.new(
         :wrapper => "_duk_#{mdef.fullName}",
         :nargs => mdef.arguments.length,
         :name => mangled_name,
       )
-      class_bindings << class_binding
+      method_bindings << method_binding
 
-      f << "#{class_binding.wrapper}: func (duk: DukContext) -> Int {"
+      f << "#{method_binding.wrapper}: func (duk: DukContext) -> Int {"
 
       args = []
 
@@ -147,7 +167,7 @@ module Collar
       f.nl
     end
 
-    def translate_field(f, fdef, cl, class_bindings)
+    def translate_field(f, fdef, cl, property_bindings)
       return unless supported_type?(fdef.varType)
       static = fdef.modifiers.include? 'static'
       return if static
@@ -155,27 +175,42 @@ module Collar
       ooc_name = unmangle(fdef.name)
       mangled_name = fdef.name.gsub(/~/, '_')
 
-      class_binding = Hashie::Mash.new(
-        :wrapper => "_duk_#{cl[1].fullName}_#{ooc_name}_accessor",
-        :nargs => 1,
+      property_binding = Hashie::Mash.new(
+        :getter => "_duk_#{cl[1].fullName}_#{ooc_name}_getter",
+        :setter => "_duk_#{cl[1].fullName}_#{ooc_name}_setter",
         :name => mangled_name,
       )
-      class_bindings << class_binding
+      property_bindings << property_binding
 
-      f << "#{class_binding.wrapper}: func (duk: DukContext) -> Int {"
+      #######################
+      # Getter
+      #######################
+      
+      f << "#{property_binding.getter}: func (duk: DukContext) -> Int {"
 
       f << "  duk pushThis()"
       f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
       f << "  duk pop()"
 
-      f << "  if (!duk isUndefined(0)) {"
-      f << "    #{fdef.name} := duk require#{type_to_duk(fdef.varType)}(0) as #{type_to_ooc(fdef.varType)}"
-      f << "    __self #{ooc_name} = #{fdef.name}"
-      f << "  }"
-      f.nl
-
       f << "  duk push#{type_to_duk(fdef.varType)}(__self #{ooc_name})"
       f << "  1"
+
+      f << "}"
+
+      #######################
+      # Setter
+      #######################
+      
+      f << "#{property_binding.setter}: func (duk: DukContext) -> Int {"
+
+      f << "  duk pushThis()"
+      f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
+      f << "  duk pop()"
+
+      f << "  #{fdef.name} := duk require#{type_to_duk(fdef.varType)}(0) as #{type_to_ooc(fdef.varType)}"
+      f << "  __self #{ooc_name} = #{fdef.name}"
+
+      f << "  0"
 
       f << "}"
 
