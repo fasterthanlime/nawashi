@@ -46,6 +46,9 @@ module Collar
 
       jsons.each do |path|
         spec = Hashie::Mash.new(JSON.load(File.read(path)))
+        next if "#{spec.path}.ooc" == @universe
+        next unless @opts[:packages].any? { |x| spec.path.start_with?(x) }
+
         tr = Collar::Translator.new(@opts, spec, all_bindings)
         tr.translate
 

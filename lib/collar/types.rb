@@ -1,14 +1,17 @@
 
 module Collar
   module Types
-    INT_TYPES = %w(Int UInt Short)
-    NUMBER_TYPES = %w(Float Double)
+    INT_TYPE_RE = /^U?(Int|Short|Long)(8|16|32|64|128)?$/
+    NUM_TYPE_RE = /^(Float|Double)(32|64|128)?$/
+
+    def presuf_test(type, prefixes, suffixes)
+    end
 
     def type_to_duk(type)
-      case
-      when INT_TYPES.any? { |x| type.start_with?(x) }
+      case type
+      when INT_TYPE_RE
         "Int"
-      when NUMBER_TYPES.any? { |x| type.start_with?(x) }
+      when NUM_TYPE_RE
         "Number"
       else
         "Ooc"

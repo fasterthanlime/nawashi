@@ -31,6 +31,15 @@ module Collar
       f << "import #{@spec.path}"
       f.nl
 
+      @spec.uses.each do |uze|
+        f << "use #{uze}"
+      end
+
+      @spec.globalImports.each do |imp|
+        next if imp.start_with?("lang/")
+        f << "import #{imp}"
+      end
+
       classes = @spec.entities.select do |en|
         en[1].type == "class"
       end
@@ -76,15 +85,28 @@ module Collar
 
     private
 
+    def supported_type?(type)
+      return false if type == '...'
+      return false if type.start_with?('Func(')
+      return false if type.start_with?('array(')
+      return false if type.start_with?('reference(')
+      return false if type.start_with?('pointer(')
+      true
+    end
+
     def translate_method(f, mdef, class_name, class_bindings)
-      return if mdef.arguments.any? { |arg| arg[1] == '...' }
+      return unless mdef.arguments.all? { |arg| supported_type?(arg[1]) }
+      unless mdef.returnType.nil?
+        return unless supported_type?(mdef.returnType)
+      end
+      return unless mdef.genericTypes.nil?
 
       ooc_name = unmangle(mdef.name)
       mangled_name = mdef.name.gsub(/~/, '_')
       static = mdef.modifiers.include? 'static'
 
       class_binding = Hashie::Mash.new(
-        :wrapper => "_duk_#{mdef.fullName}",
+        :wrapper => "_duk_#{mdef.fullName}_accessor",
         :nargs => mdef.arguments.length,
         :name => mangled_name,
       )
@@ -124,8 +146,9 @@ module Collar
     end
 
     def translate_field(f, fdef, cl, class_bindings)
-      # what of ooc arrays? :|
-      return if fdef.varType.start_with? 'array('
+      return unless supported_type?(fdef.varType)
+      static = fdef.modifiers.include? 'static'
+      return if static
 
       ooc_name = unmangle(fdef.name)
       mangled_name = fdef.name.gsub(/~/, '_')

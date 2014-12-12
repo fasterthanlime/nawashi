@@ -9,6 +9,7 @@ module Collar
         banner 'Usage: collar [options] [universefile]'
 
         on 'o=', 'output', 'Output directory', :default => "source/collar/"
+        on 'p=', 'packages', 'Whitelisted packages', :as => Array, :default => []
         on 'V', 'version', 'Print version and exit'
       end
 
