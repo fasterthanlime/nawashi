@@ -6,8 +6,25 @@ use duktape
 import structs/HashMap
 
 DUK_PROTO_CACHE := HashMap<Class, String> new()
+DUK_ID_SEED := 2424
 
 extend DukContext {
+    freshID: static func -> String {
+      DUK_ID_SEED += 1
+      "_duk_seeded_" + DUK_ID_SEED
+    }
+
+    setInheritance: func (child, parent: String) {
+      getGlobalString(child)
+      getGlobalString(parent)
+      if (isUndefined(-1) || isUndefined(-2)) {
+        \"Can't set up inheritance \#{child} => \#{parent}\" println()
+      } else {
+        setPrototype(-2)
+      }
+      pop()
+    }
+
     requireOoc: func (index: Int) -> Object {
         getPropString(index, "pointer")
         res := requirePointer(-1)

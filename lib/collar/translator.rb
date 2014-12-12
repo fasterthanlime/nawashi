@@ -14,17 +14,18 @@ module Collar
 
     attr_reader :import_path
 
-    def initialize(opts, spec, all_bindings)
+    def initialize(opts, spec, all_bindings, inheritance_chains)
       @opts = opts
       @spec = spec
       @all_bindings = all_bindings
+      @inheritance_chains = inheritance_chains
       @import_path = "duk/#{@spec.path}"
     end
 
     def translate
       f = Fool.new("#{@opts[:output]}/#{@import_path}.ooc")
 
-      puts "[Module] #{@spec.path}"
+      puts "☃ #{@spec.path}"
 
       f << AUTOGEN_NOTICE
       f << "import duk/tape, collar/extensions"
@@ -48,7 +49,11 @@ module Collar
 
       classes.each do |cl|
         class_name = cl[1].fullName
-        puts "[Class] #{class_name}"
+
+        parent_class = cl[1].extendsFullName
+        if parent_class != "lang_types__Object"
+          @inheritance_chains << [class_name, parent_class]
+        end
 
         method_bindings = []
         property_bindings = []
@@ -109,7 +114,6 @@ module Collar
 
     def supported_type?(type)
       return false if type == '...'
-      return false if type.start_with?('Func(')
       return false if type.start_with?('array(')
       return false if type.start_with?('reference(')
       return false if type.start_with?('pointer(')
@@ -139,8 +143,36 @@ module Collar
       args = []
 
       mdef.arguments.each_with_index do |arg, i|
-        args << arg[0]
-        f << "  #{arg[0]} := duk require#{type_to_duk(arg[1])}(#{i}) as #{type_to_ooc(arg[1])}"
+        if type_is_fun?(arg[1])
+          args << arg[0]
+          f.nl
+          f << "  duk requireObjectCoercible(#{i})"
+
+          closure_arg_types = fun_type_arguments(arg[1])
+          closure_arg_list = []
+          closure_arg_types.each_with_index do |closure_arg_type, j|
+            closure_arg_list << "__arg#{j}: #{type_to_ooc(closure_arg_type)}"
+          end
+
+          f.nl
+          f << "  closureID := DukContext freshID()"
+          f << "  duk dup(#{i})"
+          f << "  duk putGlobalString(closureID)"
+          f.nl
+          f << "  #{arg[0]} := func (#{closure_arg_list.join(", ")}) {"
+          f << "    duk getGlobalString(closureID)"
+          closure_arg_types.each_with_index do |closure_arg_type, j|
+          f << "    duk push#{type_to_duk(closure_arg_type)}(__arg#{j})"
+          end
+          f << "    if(duk pcall(#{closure_arg_list.length}) != 0) {"
+          f << "      raise(\"Error in closure: \" + duk safeToString(-1))"
+          f << "    }"
+          f << "  }"
+          f.nl
+        else
+          args << arg[0]
+          f << "  #{arg[0]} := duk require#{type_to_duk(arg[1])}(#{i}) as #{type_to_ooc(arg[1])}"
+        end
       end
       f.nl
 
@@ -169,6 +201,7 @@ module Collar
 
     def translate_field(f, fdef, cl, property_bindings)
       return unless supported_type?(fdef.varType)
+      return if type_is_fun?(fdef.varType)
       static = fdef.modifiers.include? 'static'
       return if static
 

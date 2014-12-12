@@ -24,8 +24,6 @@ module Collar
     def doall
       jsons = get_jsons
 
-      all_bindings = []
-
       ext = Collar::Fool.new("#{@opts[:output]}/extensions.ooc")
       ext << AUTOGEN_NOTICE
       ext << PRELUDE
@@ -44,22 +42,39 @@ module Collar
       f << "use duktape"
       f << "import duk/tape, collar/extensions"
 
+      all_bindings = []
+      inheritance_chains = []
+
       jsons.each do |path|
         spec = Hashie::Mash.new(JSON.load(File.read(path)))
         next if "#{spec.path}.ooc" == @universe
         next unless @opts[:packages].any? { |x| spec.path.start_with?(x) }
         next if @opts[:'exclude-packages'].any? { |x| spec.path.start_with?(x) }
 
-        tr = Collar::Translator.new(@opts, spec, all_bindings)
+        tr = Collar::Translator.new(@opts, spec, all_bindings, inheritance_chains)
         tr.translate
 
         f << "import #{tr.import_path}"
       end
 
+      f.nl
       f << "_bind_all: func (duk: DukContext) {"
+
+      f.nl
+      f << "  // All bindings"
+
       all_bindings.each do |bi|
         f << "  #{bi}(duk);"
       end
+
+      f.nl
+      f << "  // Inheritance chains"
+
+      inheritance_chains.each do |chain|
+        child, parent = chain
+        f << "  duk setInheritance(\"#{child}\", \"#{parent}\")"
+      end
+
       f << "}"
       f.close
 
@@ -70,7 +85,7 @@ module Collar
     def get_jsons
       unless File.exist?(TMP_DIR)
         puts "Launching rock..."
-        cmd = %Q{rock -vv #{@universe} --backend=json --outpath=#{TMP_DIR}}
+        cmd = %Q{rock -q #{@universe} --backend=json --outpath=#{TMP_DIR}}
         unless system(cmd)
           puts "Error launching rock."
           exit 1
