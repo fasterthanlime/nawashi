@@ -34,15 +34,18 @@ extend DukContext {
 
     pushOoc: func (obj: Object)  {
         objIdx := pushObject()
-        clazz := obj class
-        protoName := DUK_PROTO_CACHE get(clazz)
 
-        if (!protoName) {
-            raise("No duk bindings for " + (clazz name))
+        if (obj != null) {
+          clazz := obj class
+          protoName := DUK_PROTO_CACHE get(clazz)
+
+          if (!protoName) {
+              raise("No duk bindings for %s (class address: %p)" format(clazz name, clazz))
+          }
+
+          getGlobalString(protoName)
+          setPrototype(objIdx)
         }
-
-        getGlobalString(protoName)
-        setPrototype(objIdx)
 
         pushPointer(obj)
         putPropString(objIdx, "pointer")
