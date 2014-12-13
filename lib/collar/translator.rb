@@ -16,12 +16,12 @@ module Collar
 
     attr_reader :import_path
 
-    def initialize(opts, spec, all_bindings, inheritance_chains, spec_paths)
+    def initialize(opts, spec, all_bindings, inheritance_chains, registry)
       @opts = opts
       @spec = spec
       @all_bindings = all_bindings
       @inheritance_chains = inheritance_chains
-      @spec_paths = spec_paths
+      @registry = registry
       @import_path = "duk/#{@spec.path}"
       @imports = []
     end

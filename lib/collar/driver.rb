@@ -1,14 +1,13 @@
 
 require 'json'
 require 'hashie'
-require 'versionomy'
-require 'set'
 
 require 'collar/prelude'
 require 'collar/fool'
 require 'collar/translator'
 require 'collar/type_scriptor'
 require 'collar/logger'
+require 'collar/registry'
 
 module Collar
   class Driver
@@ -16,7 +15,6 @@ module Collar
     include Collar::Logger
 
     TMP_DIR = '.collar-cache'
-    MIN_JSON_VERSION = Versionomy.parse("1.2.1")
 
     def initialize(opts, universe)
       @opts = opts
@@ -47,39 +45,24 @@ module Collar
 
       f << "use duktape"
       f << "import duk/tape, collar/extensions"
+      
+      all_specs = jsons.map do |path|
+        Hashie::Mash.new(JSON.load(File.read(path)))
+      end
+
+      registry = Registry.new(@opts, @universe, all_specs)
+
+      info "Binding #{registry.specs.length} out of #{registry.all_specs.length} specs...".yellow
 
       all_bindings = []
       inheritance_chains = []
-      specs = []
-      
-      jsons.each do |path|
-        spec = Hashie::Mash.new(JSON.load(File.read(path)))
-        next if "#{spec.path}.ooc" == @universe
-        next unless @opts[:packages].any? { |x| spec.path.start_with?(x) }
-        next if @opts[:'exclude-packages'].any? { |x| spec.path.start_with?(x) }
 
-        if spec.version.nil?
-          bail "#{path}: version-less JSON file. Update rock and try again.".red
-        end
-
-        version = Versionomy.parse(spec.version)
-        if version < MIN_JSON_VERSION
-          bail "#{path}: v#{version} but collar needs >= v#{MIN_JSON_VERSION}".red
-        end
-
-        specs << spec
-      end
-
-      spec_paths = Set.new(specs.map(&:path))
-
-      info "Binding #{specs.length} specs...".yellow
-
-      specs.each do |spec|
-        tr = Collar::Translator.new(@opts, spec, all_bindings, inheritance_chains, spec_paths)
+      registry.specs.each do |spec|
+        tr = Collar::Translator.new(@opts, spec, all_bindings, inheritance_chains, registry)
         tr.translate
 
         if @opts[:typescript]
-          ts = Collar::TypeScriptor.new(@opts, spec, spec_paths)
+          ts = Collar::TypeScriptor.new(@opts, spec, registry)
           ts.typescriptize
         end
 

@@ -9,10 +9,10 @@ module Collar
     include Collar::Blacklist
     include Collar::Types
   
-    def initialize(opts, spec, spec_paths)
+    def initialize(opts, spec, registry)
       @opts = opts
       @spec = spec
-      @spec_paths = spec_paths
+      @registry = registry
       @imports = []
     end
 
@@ -84,7 +84,7 @@ module Collar
 
     def import_if_necessary(imp)
         return if imp.start_with?("lang/")
-        return unless @spec_paths.include?(imp)
+        return unless @registry.spec_paths.include?(imp)
         return if @imports.include?(imp)
         @imports << imp
     end
@@ -169,7 +169,7 @@ module Collar
 
         if type_path == @spec.path.gsub('/', '_')
           type
-        elsif @spec_paths.include?(imp_path)
+        elsif @registry.spec_paths.include?(imp_path)
           import_if_necessary(imp_path)
           "#{type_path}.#{type_name}"
         else
@@ -182,12 +182,12 @@ module Collar
       tokens = type.split('__')
       return false unless tokens.length == 2
 
-      type_path, type_name = tokens
+      type_path, _ = tokens
       imp_path = type_path.gsub('_', '/')
 
       if type_path == @spec.path.gsub('/', '_')
         true
-      elsif @spec_paths.include?(imp_path)
+      elsif @registry.spec_paths.include?(imp_path)
         true
       else
         false
