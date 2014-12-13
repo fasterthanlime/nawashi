@@ -122,7 +122,6 @@ module Collar
     private
 
     def import_if_necessary(imp)
-        puts "Maybe import #{imp}"
         return if imp.start_with?("lang/")
         return if @imports.include?(imp)
 
@@ -181,7 +180,6 @@ module Collar
           f.nl
         else
           args << arg[0]
-          puts "Arg full type: #{arg[3]}"
           f << "  #{arg[0]} := duk require#{type_to_duk(arg[3])}(#{i}) as #{type_to_ooc(arg[1])}"
         end
       end
