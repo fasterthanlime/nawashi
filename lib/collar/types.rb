@@ -1,4 +1,6 @@
 
+require 'hashie'
+
 module Collar
   module Types
     INT_TYPE_RE = /^U?(Int|Short|Long)(8|16|32|64|128)?$/
@@ -9,16 +11,34 @@ module Collar
       type =~ FUN_TYPE_RE
     end
 
-    def fun_type_arguments(type)
-      matches = /Func\(.*arguments\((.*)\)\)/.match(type)
-      return [] unless matches
-      matches[1].split(',').map(&:strip)
-    end
+    FUN_ABOMINATION_RE = %r{
+    (?<result>
+     (?<kind>arguments|return)
+     \(
+     (?<args>
+      (?<type>
+       (Func|arguments|return|pointer|array)
+       \(\g<type>(?:,\s\g<type>)*\)
+       |
+       ([^\(]*?)
+      )
+      (,\s\g<type>)*
+     )
+     \)
+    )
+    }x
 
-    def fun_type_return(type)
-      matches = /Func\(.*return\((.*)\)\)/.match(type)
-      return "any" unless matches
-      return matches[1]
+    def fun_type_parse(type)
+      inner = /^Func\((.*)\)$/.match(type)
+      raise "Not a func type: #{type}" unless inner
+      hash = Hashie::Mash.new(Hash[inner[1].scan(FUN_ABOMINATION_RE).map { |x| x[1..2] }])
+      if hash.arguments
+        hash.arguments = hash.arguments.split(",").map(&:strip)
+      else
+        hash.arguments = []
+      end
+      puts "Fun type: #{hash.to_h.to_s}"
+      hash
     end
 
     def type_to_ooc(type)

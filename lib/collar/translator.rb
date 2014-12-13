@@ -156,7 +156,7 @@ module Collar
           f.nl
           f << "  duk requireObjectCoercible(#{i})"
 
-          closure_arg_types = fun_type_arguments(arg[1])
+          closure_arg_types = fun_type_parse(arg[1]).arguments
           closure_arg_list = []
           closure_arg_types.each_with_index do |closure_arg_type, j|
             closure_arg_list << "__arg#{j}: #{type_to_ooc(closure_arg_type)}"
@@ -342,8 +342,6 @@ module Collar
               fields = td[1].members.select { |x| x[1].type == 'field' }
               info "#{type}: cover from #{td[1].from} with fields #{fields.map(&:first).join(", ")}"
             end
-          else
-            puts "No def for #{type}"
           end
 
           type_path, type_name = tokens

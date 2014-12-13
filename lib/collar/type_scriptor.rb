@@ -149,7 +149,8 @@ module Collar
       when /^lang_Numbers__/
         "number"
       when /^Func\(/
-        args = fun_type_arguments(type)
+        args = fun_type_parse(type).arguments
+
         arglist = []
         args.each_with_index do |arg, i|
           arglist << "arg#{i}: #{type_to_ts(arg)}"
