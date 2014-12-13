@@ -1,11 +1,13 @@
 
 require 'collar/fool'
 require 'collar/blacklist'
+require 'collar/types'
 
 module Collar
   class TypeScriptor
     include Collar::Mangler
     include Collar::Blacklist
+    include Collar::Types
   
     def initialize(opts, spec)
       @opts = opts
@@ -52,14 +54,23 @@ module Collar
 
       arglist = []
       mdef.arguments.each do |arg|
-        arglist << "#{arg[0]}: any"
+        arglist << "#{arg[0]}: #{type_to_ts(arg[1])}"
       end
 
       if mdef.modifiers.include? 'static'
-        f << "  static #{mangled_name}: (#{arglist.join(', ')}) => any;"
+        f.write "  static #{mangled_name}: (#{arglist.join(', ')}) =>"
       else
-        f << "  #{mangled_name}(#{arglist.join(', ')}): any;"
+        f.write "  #{mangled_name}(#{arglist.join(', ')}): "
       end
+
+      if mdef.returnType
+        f.write type_to_ts(mdef.returnType)
+      else
+        f.write "void"
+      end
+
+      f.write ";"
+      f.nl
     end
 
     def translate_field(f, fdef)
@@ -68,7 +79,9 @@ module Collar
       f.write "  "
       f.write "static " if fdef.modifiers.include? 'static'
       f.write mangled_name
-      f.write ": any;"
+      f.write ": "
+      f.write type_to_ts(fdef.varType)
+      f.write ";"
       f.nl
     end
 
