@@ -4,6 +4,7 @@ require 'collar/types'
 require 'collar/mangler'
 require 'collar/fool'
 require 'collar/blacklist'
+require 'collar/logger'
 
 module Collar
   class Translator
@@ -11,6 +12,7 @@ module Collar
     include Collar::Types
     include Collar::Mangler
     include Collar::Blacklist
+    include Collar::Logger
 
     attr_reader :import_path
 
@@ -24,8 +26,6 @@ module Collar
 
     def translate
       f = Fool.new("#{@opts[:output]}/#{@import_path}.ooc")
-
-      puts "☃ #{@spec.path}"
 
       f << AUTOGEN_NOTICE
       f << "import duk/tape, collar/extensions"
@@ -108,17 +108,10 @@ module Collar
       end
 
       f.close
+      oyea "#{@spec.path}"
     end
 
     private
-
-    def supported_type?(type)
-      return false if type == '...'
-      return false if type.start_with?('array(')
-      return false if type.start_with?('reference(')
-      return false if type.start_with?('pointer(')
-      true
-    end
 
     def translate_method(f, mdef, class_name, method_bindings)
       return unless mdef.arguments.all? { |arg| supported_type?(arg[1]) }
@@ -246,7 +239,6 @@ module Collar
       f << "  0"
 
       f << "}"
-
     end
 
   end

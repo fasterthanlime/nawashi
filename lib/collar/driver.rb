@@ -1,15 +1,19 @@
 
 require 'json'
 require 'hashie'
+require 'versionomy'
+require 'set'
 
 require 'collar/prelude'
 require 'collar/fool'
 require 'collar/translator'
 require 'collar/type_scriptor'
+require 'collar/logger'
 
 module Collar
   class Driver
     include Collar::Prelude
+    include Collar::Logger
 
     TMP_DIR = '.collar-cache'
 
@@ -18,7 +22,7 @@ module Collar
       @universe = universe
 
       unless File.exist?(@universe)
-        puts "Universe #{@universe} does not exist."
+        bail "Universe #{@universe} does not exist."
       end
     end
 
@@ -45,18 +49,38 @@ module Collar
 
       all_bindings = []
       inheritance_chains = []
+      specs = []
 
+      min_version = Versionomy.parse("1.2.0")
+      
       jsons.each do |path|
         spec = Hashie::Mash.new(JSON.load(File.read(path)))
         next if "#{spec.path}.ooc" == @universe
         next unless @opts[:packages].any? { |x| spec.path.start_with?(x) }
         next if @opts[:'exclude-packages'].any? { |x| spec.path.start_with?(x) }
 
+        if spec.version.nil?
+          bail "#{path}: version-less JSON file. Update rock and try again.".red
+        end
+
+        version = Versionomy.parse(spec.version)
+        if version < min_version
+          bail "#{path}: v#{version} but collar needs >= v#{min_version}".red
+        end
+
+        specs << spec
+      end
+
+      spec_paths = Set.new(specs.map(&:path))
+
+      info "Binding #{specs.length} specs...".yellow
+
+      specs.each do |spec|
         tr = Collar::Translator.new(@opts, spec, all_bindings, inheritance_chains)
         tr.translate
 
         if @opts[:typescript]
-          ts = Collar::TypeScriptor.new(@opts, spec)
+          ts = Collar::TypeScriptor.new(@opts, spec, spec_paths)
           ts.typescriptize
         end
 
@@ -89,15 +113,15 @@ module Collar
     private
 
     def get_jsons
-      unless File.exist?(TMP_DIR)
-        puts "Launching rock..."
+      if File.exist?(TMP_DIR)
+        info "JSONs already there :) Remove #{TMP_DIR} to force refresh.".yellow
+      else
+        info "Generating JSONs with rock...".yellow
         cmd = %Q{rock -q #{@universe} --backend=json --outpath=#{TMP_DIR}}
         unless system(cmd)
-          puts "Error launching rock."
-          exit 1
+          bail "Error launching rock."
         end
       end
-      puts "Alright, we got our nifty bindings :)"
 
       Dir["#{TMP_DIR}/**/*.json"]
     end

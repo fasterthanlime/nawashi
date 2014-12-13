@@ -8,19 +8,6 @@ module Collar
     def presuf_test(type, prefixes, suffixes)
     end
 
-    def type_to_ts(type)
-      case type
-      when INT_TYPE_RE, NUM_TYPE_RE
-        "number"
-      when "Bool"
-        "boolean"
-      when "Void", "void"
-        "void"
-      else
-        "any"
-      end
-    end
-
     def type_to_duk(type)
       case type
       when INT_TYPE_RE
@@ -56,6 +43,14 @@ module Collar
         .gsub(/pointer\((.+)\)/) { "#{type_to_ooc($1)}*" }
         .gsub(/array\((.+)\)/) { "#{type_to_ooc($1)}[]" }
         .gsub(/Func\(arguments\((.+)\)\)/) { "Func(#{$1})" }
+    end
+
+    def supported_type?(type)
+      return false if type == '...'
+      return false if type.start_with?('array(')
+      return false if type.start_with?('reference(')
+      return false if type.start_with?('pointer(')
+      true
     end
 
   end
