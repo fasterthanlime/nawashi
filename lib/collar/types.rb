@@ -36,6 +36,15 @@ module Collar
       true
     end
 
+    def compound_cover?(td)
+      return false unless td[1].type == 'cover'
+
+      td[1].members.each do |mb|
+        return true if mb[1].type == 'field'
+      end
+      false 
+    end
+
   end
 end
 

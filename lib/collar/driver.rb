@@ -52,7 +52,7 @@ module Collar
 
       registry = Registry.new(@opts, @universe, all_specs)
 
-      info "Binding #{registry.specs.length} out of #{registry.all_specs.length} specs...".yellow
+      info "Binding #{registry.specs.length} specs...".yellow
 
       all_bindings = []
       inheritance_chains = []

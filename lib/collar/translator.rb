@@ -281,6 +281,16 @@ module Collar
         tokens = type.split('__')
         
         if tokens.length == 2
+          td = @registry.type_catalog[type]
+          if td
+            if compound_cover?(td)
+              fields = td[1].members.select { |x| x[1].type == 'field' }
+              info "#{type}: cover from #{td[1].from} with fields #{fields.map(&:first).join(", ")}"
+            end
+          else
+            puts "No def for #{type}"
+          end
+
           type_path, type_name = tokens
           imp_path = type_path.gsub('_', '/')
           import_if_necessary(imp_path)

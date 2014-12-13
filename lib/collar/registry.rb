@@ -11,6 +11,7 @@ module Collar
     attr_reader :specs
     attr_reader :all_specs
     attr_reader :spec_paths
+    attr_reader :type_catalog
 
     MIN_JSON_VERSION = Versionomy.parse("1.2.1")
 
@@ -21,9 +22,29 @@ module Collar
 
       @specs = @all_specs.select { |spec| spec_chosen?(spec) }
       @spec_paths = Set.new(specs.map(&:path))
+      @type_catalog = {}
+      catalog_types!
     end
 
     private
+
+    def catalog_types!
+      all_specs.each do |spec|
+        spec.entities.each do |en|
+          if typelike?(en)
+            full_name = "#{spec.path.gsub('/', '_')}__#{en[1].name}"
+            @type_catalog[full_name] = en
+          end
+        end
+      end
+      info "Found #{@type_catalog.length} types in #{all_specs.length} specs."
+    end
+
+    TYPELIKES = %w(class cover enum)
+
+    def typelike?(en)
+      TYPELIKES.include?(en[1].type)
+    end
 
     def spec_chosen?(spec)
       return false if "#{spec.path}.ooc" == @universe
