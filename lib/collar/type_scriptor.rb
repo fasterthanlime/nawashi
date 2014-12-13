@@ -36,21 +36,35 @@ module Collar
       classes.each do |cl|
         class_short_name = cl[1].name
         class_long_name = cl[1].fullName
-        f << "declare class #{class_long_name} {"
+
+        static_members = []
+        nonstatic_members = []
 
         cl[1].members.each do |mb|
           next if (mb[0].start_with?('__')) || MEMBERS_BLACKLIST.include?(mb[0])
-
-          case mb[1].type
-          when 'method'
-            translate_method(f, mb[1])
-          when 'field'
-            translate_field(f, mb[1])
+          if mb[1].modifiers.include? 'static'
+            static_members << mb
+          else
+            nonstatic_members << mb
           end
         end
 
+        f<< "export interface #{class_long_name}_static {"
+        static_members.each { |mb| translate_member(f, mb) }
         f << "};"
-        f << "export class #{class_short_name} extends #{class_long_name} {};"
+        f.nl
+
+        f.write "export interface #{class_long_name} "
+        if cl[1].extendsFullName && viable_imported_type?(cl[1].extendsFullName)
+          f.write "extends #{type_to_ts(cl[1].extendsFullName)} "
+        end
+
+        f << "{"
+        nonstatic_members.each { |mb| translate_member(f, mb) }
+        f << "};"
+        f << "export interface #{class_short_name} extends #{class_long_name} {};"
+        f << "declare var #{class_long_name}: #{class_long_name}_static;"
+        f << "export var #{class_short_name} = #{class_long_name};"
         f.nl
       end
 
@@ -68,6 +82,15 @@ module Collar
 
     private
 
+    def translate_member(f, mb)
+      case mb[1].type
+      when 'method'
+        translate_method(f, mb[1])
+      when 'field'
+        translate_field(f, mb[1])
+      end
+    end
+
     def translate_method(f, mdef)
       return unless mdef.arguments.all? { |arg| supported_type?(arg[1]) }
       unless mdef.returnType.nil?
@@ -82,8 +105,8 @@ module Collar
         arglist << "#{arg[0]}: #{type_to_ts(arg[3])}"
       end
 
-      if mdef.modifiers.include? 'static'
-        f.write "  static #{mangled_name}: (#{arglist.join(', ')}) => "
+      if mdef.name == 'new'
+        f.write "  #{mangled_name}: (#{arglist.join(', ')}) => "
       else
         f.write "  #{mangled_name}(#{arglist.join(', ')}): "
       end
@@ -103,7 +126,6 @@ module Collar
       mangled_name = fdef.name.gsub(/~/, '_')
 
       f.write "  "
-      f.write "static " if fdef.modifiers.include? 'static'
       f.write mangled_name
       f.write ": "
       f.write type_to_ts(fdef.varTypeFqn)
@@ -139,6 +161,20 @@ module Collar
       end
     end
 
+    def viable_imported_type?(type)
+      tokens = type.split('__')
+      return false unless tokens.length == 2
+
+      type_path, type_name = tokens
+
+      if type_path == @spec.path.gsub('/', '_')
+        true
+      elsif @spec_paths.include? type_path.gsub('_', '/')
+        true
+      else
+        false
+      end
+    end
 
   end
 end
