@@ -5,6 +5,7 @@ require 'hashie'
 require 'collar/prelude'
 require 'collar/fool'
 require 'collar/translator'
+require 'collar/type_scriptor'
 
 module Collar
   class Driver
@@ -53,6 +54,11 @@ module Collar
 
         tr = Collar::Translator.new(@opts, spec, all_bindings, inheritance_chains)
         tr.translate
+
+        if @opts[:typescript]
+          ts = Collar::TypeScriptor.new(@opts, spec)
+          ts.typescriptize
+        end
 
         f << "import #{tr.import_path}"
       end

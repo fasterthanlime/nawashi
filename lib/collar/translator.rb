@@ -3,14 +3,14 @@ require 'collar/prelude'
 require 'collar/types'
 require 'collar/mangler'
 require 'collar/fool'
+require 'collar/blacklist'
 
 module Collar
   class Translator
     include Collar::Prelude
     include Collar::Types
     include Collar::Mangler
-
-    MEMBERS_BLACKLIST = %w(init)
+    include Collar::Blacklist
 
     attr_reader :import_path
 
