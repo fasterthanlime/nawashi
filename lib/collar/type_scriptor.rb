@@ -13,6 +13,7 @@ module Collar
       @opts = opts
       @spec = spec
       @spec_paths = spec_paths
+      @imports = []
     end
 
     def typescriptize
@@ -20,14 +21,8 @@ module Collar
 
       f = Fool.new("#{@opts[:typescript]}/#{path}.ts")
 
-      done_imports = []
-
       @spec.globalImports.each do |imp|
-        next if imp.start_with?("lang/")
-        next unless @spec_paths.include?(imp)
-        next if done_imports.include?(imp)
-        f << "import #{imp.gsub(/\//, '_')} = require('#{imp}');"
-        done_imports << imp
+        import_if_necessary(imp)
       end
       f.nl
 
@@ -77,7 +72,21 @@ module Collar
         f << "export class #{short_name} extends #{long_name} {};"
       end
 
+      import_tmp = []
+      @imports.each do |imp|
+        import_tmp << "import #{imp.gsub(/\//, '_')} = require('#{imp}');"
+      end
+      import_tmp << ""
+      f.prepend(import_tmp.join("\n"))
+
       f.close
+    end
+
+    def import_if_necessary(imp)
+        return if imp.start_with?("lang/")
+        return unless @spec_paths.include?(imp)
+        return if @imports.include?(imp)
+        @imports << imp
     end
 
     private
@@ -140,7 +149,13 @@ module Collar
       when /^lang_Numbers__/
         "number"
       when /^Func\(/
-        "() => any"
+        args = fun_type_arguments(type)
+        arglist = []
+        args.each_with_index do |arg, i|
+          arglist << "arg#{i}: #{type_to_ts(arg)}"
+        end
+
+        "(#{arglist.join(", ")}) => any"
       when "lang_types__Bool"
         "boolean"
       when "Void", "void"
@@ -150,10 +165,12 @@ module Collar
         return "any" unless tokens.length == 2
 
         type_path, type_name = tokens
+        imp_path = type_path.gsub('_', '/')
 
         if type_path == @spec.path.gsub('/', '_')
           type
-        elsif @spec_paths.include? type_path.gsub('_', '/')
+        elsif @spec_paths.include?(imp_path)
+          import_if_necessary(imp_path)
           "#{type_path}.#{type_name}"
         else
           "any"
@@ -166,10 +183,11 @@ module Collar
       return false unless tokens.length == 2
 
       type_path, type_name = tokens
+      imp_path = type_path.gsub('_', '/')
 
       if type_path == @spec.path.gsub('/', '_')
         true
-      elsif @spec_paths.include? type_path.gsub('_', '/')
+      elsif @spec_paths.include?(imp_path)
         true
       else
         false

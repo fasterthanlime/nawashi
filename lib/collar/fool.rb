@@ -11,23 +11,30 @@ module Collar
         FileUtils.mkdir_p(dirname)
       end
 
-      @file = File.open(@path, 'w')
+      @buffer = ""
     end
 
     def close
-      @file.close
+      File.open(@path, 'w') do |f|
+        f.write(@buffer)
+      end
     end
 
     def << (x)
-      @file << "#{x}\n"
+      @buffer << "#{x}"
+      @buffer << "\n"
     end
 
     def nl
-      self << ""
+      @buffer << "\n"
     end
 
     def write (x)
-      @file << x
+      @buffer << x
+    end
+
+    def prepend (x)
+      @buffer.prepend(x)
     end
   end
 end

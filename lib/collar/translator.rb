@@ -16,12 +16,14 @@ module Collar
 
     attr_reader :import_path
 
-    def initialize(opts, spec, all_bindings, inheritance_chains)
+    def initialize(opts, spec, all_bindings, inheritance_chains, spec_paths)
       @opts = opts
       @spec = spec
       @all_bindings = all_bindings
       @inheritance_chains = inheritance_chains
+      @spec_paths = spec_paths
       @import_path = "duk/#{@spec.path}"
+      @imports = []
     end
 
     def translate
@@ -38,8 +40,7 @@ module Collar
       f.nl
 
       @spec.globalImports.each do |imp|
-        next if imp.start_with?("lang/")
-        f << "import #{imp}"
+        import_if_necessary(imp)
       end
       f.nl
 
@@ -107,11 +108,26 @@ module Collar
         f.nl
       end
 
+      import_tmp = []
+      @imports.each do |imp|
+        import_tmp << "import #{imp}"
+      end
+      import_tmp << ""
+      f.prepend(import_tmp.join("\n"))
+
       f.close
       oyea "#{@spec.path}"
     end
 
     private
+
+    def import_if_necessary(imp)
+        puts "Maybe import #{imp}"
+        return if imp.start_with?("lang/")
+        return if @imports.include?(imp)
+
+        @imports << imp
+    end
 
     def translate_method(f, mdef, class_name, method_bindings)
       return unless mdef.arguments.all? { |arg| supported_type?(arg[1]) }
@@ -160,11 +176,13 @@ module Collar
           f << "    if(duk pcall(#{closure_arg_list.length}) != 0) {"
           f << "      raise(\"Error in closure: \" + duk safeToString(-1))"
           f << "    }"
+          f << "    duk pop()"
           f << "  }"
           f.nl
         else
           args << arg[0]
-          f << "  #{arg[0]} := duk require#{type_to_duk(arg[1])}(#{i}) as #{type_to_ooc(arg[1])}"
+          puts "Arg full type: #{arg[3]}"
+          f << "  #{arg[0]} := duk require#{type_to_duk(arg[3])}(#{i}) as #{type_to_ooc(arg[1])}"
         end
       end
       f.nl
@@ -174,7 +192,6 @@ module Collar
       capture = mvoid ? "" : "__retval := "
 
       if static
-        f << "  duk pushThis()"
         f << "  #{capture}#{class_name} #{ooc_name}(#{arglist})"
       else
         f << "  duk pushThis()"
@@ -183,10 +200,10 @@ module Collar
       end
 
       if mvoid
-        f << "  0"
+        f << "  return 0"
       else
-        f << "  duk push#{type_to_duk(mdef.returnType)}(__retval)"
-        f << "  1"
+        f << "  duk push#{type_to_duk(mdef.returnTypeFqn)}(__retval)"
+        f << "  return 1"
       end
       f << "}"
       f.nl
@@ -196,7 +213,6 @@ module Collar
       return unless supported_type?(fdef.varType)
       return if type_is_fun?(fdef.varType)
       static = fdef.modifiers.include? 'static'
-      return if static
 
       ooc_name = unmangle(fdef.name)
       mangled_name = fdef.name.gsub(/~/, '_')
@@ -214,12 +230,16 @@ module Collar
       
       f << "#{property_binding.getter}: func (duk: DukContext) -> Int {"
 
-      f << "  duk pushThis()"
-      f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
-      f << "  duk pop()"
+      if static
+        f << "  __self := #{cl[1].name}"
+      else
+        f << "  duk pushThis()"
+        f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
+        f << "  duk pop()"
+      end
 
-      f << "  duk push#{type_to_duk(fdef.varType)}(__self #{ooc_name})"
-      f << "  1"
+      f << "  duk push#{type_to_duk(fdef.varTypeFqn)}(__self #{ooc_name})"
+      f << "  return 1"
 
       f << "}"
 
@@ -229,17 +249,50 @@ module Collar
       
       f << "#{property_binding.setter}: func (duk: DukContext) -> Int {"
 
-      f << "  duk pushThis()"
-      f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
-      f << "  duk pop()"
+      if static
+        f << "  __self := #{cl[1].name}"
+      else
+        f << "  duk pushThis()"
+        f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
+        f << "  duk pop()"
+      end
 
       f << "  #{fdef.name} := duk require#{type_to_duk(fdef.varType)}(0) as #{type_to_ooc(fdef.varType)}"
       f << "  __self #{ooc_name} = #{fdef.name}"
 
-      f << "  0"
+      f << "  return 0"
 
       f << "}"
     end
+
+    def type_to_duk(type)
+      case type
+      when INT_TYPE_RE
+        "Int"
+      when NUM_TYPE_RE
+        "Number"
+      when FUN_TYPE_RE
+        "ObjectCoercible"
+      when /^pointer\(.*\)$/
+        "Pointer"
+      when /C?String/
+        "String"
+      when "Bool"
+        "Boolean"
+      else
+        tokens = type.split('__')
+        
+        if tokens.length == 2
+          type_path, type_name = tokens
+          imp_path = type_path.gsub('_', '/')
+          import_if_necessary(imp_path)
+          type_to_duk(type_name)
+        else
+          "Ooc"
+        end
+      end
+    end
+
 
   end
 end
