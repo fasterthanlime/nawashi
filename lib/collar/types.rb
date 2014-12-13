@@ -23,6 +23,7 @@ module Collar
 
     def type_to_ooc(type)
       type
+        .gsub(/^(.+)__(.+)$/) { type_to_ooc($2) }
         .gsub(/pointer\((.+)\)/) { "#{type_to_ooc($1)}*" }
         .gsub(/array\((.+)\)/) { "#{type_to_ooc($1)}[]" }
         .gsub(/Func\(arguments\((.+)\)\)/) { "Func(#{$1})" }

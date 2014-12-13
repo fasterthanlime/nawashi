@@ -170,7 +170,7 @@ module Collar
           f << "  #{arg[0]} := func (#{closure_arg_list.join(", ")}) {"
           f << "    duk getGlobalString(closureID)"
           closure_arg_types.each_with_index do |closure_arg_type, j|
-          f << "    duk push#{type_to_duk(closure_arg_type)}(__arg#{j})"
+            f << push_something("__arg#{j}", closure_arg_type)
           end
           f << "    if(duk pcall(#{closure_arg_list.length}) != 0) {"
           f << "      raise(\"Error in closure: \" + duk safeToString(-1))"
@@ -180,7 +180,7 @@ module Collar
           f.nl
         else
           args << arg[0]
-          f << "  #{arg[0]} := duk require#{type_to_duk(arg[3])}(#{i}) as #{type_to_ooc(arg[1])}"
+          f << require_something(arg[0], arg[3])
         end
       end
       f.nl
@@ -200,7 +200,7 @@ module Collar
       if mvoid
         f << "  return 0"
       else
-        f << "  duk push#{type_to_duk(mdef.returnTypeFqn)}(__retval)"
+        f << push_something("__retval", mdef.returnTypeFqn)
         f << "  return 1"
       end
       f << "}"
@@ -236,7 +236,7 @@ module Collar
         f << "  duk pop()"
       end
 
-      f << "  duk push#{type_to_duk(fdef.varTypeFqn)}(__self #{ooc_name})"
+      f << push_something("__self #{ooc_name}", fdef.varTypeFqn)
       f << "  return 1"
 
       f << "}"
@@ -255,12 +255,20 @@ module Collar
         f << "  duk pop()"
       end
 
-      f << "  #{fdef.name} := duk require#{type_to_duk(fdef.varType)}(0) as #{type_to_ooc(fdef.varType)}"
+      f << require_something(fdef.name, fdef.varTypeFqn)
       f << "  __self #{ooc_name} = #{fdef.name}"
 
       f << "  return 0"
 
       f << "}"
+    end
+
+    def require_something(lhs, type)
+      "  #{lhs} := duk require#{type_to_duk(type)}(0) as #{type_to_ooc(type)}"
+    end
+
+    def push_something(rhs, type)
+      "  duk push#{type_to_duk(type)}(#{rhs})"
     end
 
     def type_to_duk(type)
