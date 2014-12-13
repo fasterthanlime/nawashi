@@ -180,7 +180,7 @@ module Collar
           f.nl
         else
           args << arg[0]
-          f << require_something(arg[0], arg[3])
+          f << require_something(arg[0], arg[3], :index => i)
         end
       end
       f.nl
@@ -263,12 +263,59 @@ module Collar
       f << "}"
     end
 
-    def require_something(lhs, type)
-      "  #{lhs} := duk require#{type_to_duk(type)}(0) as #{type_to_ooc(type)}"
+    def indent(tmp, level)
+      tmp.split("\n").map { |x| ("  " * level) + x }.join("\n")
     end
 
-    def push_something(rhs, type)
-      "  duk push#{type_to_duk(type)}(#{rhs})"
+    def require_something(lhs, type, level: 1, index: 0, mode: :declare)
+      tmp = ""
+
+      td = @registry.type_catalog[type]
+      if td && compound_cover?(td)
+        tmp << "#{lhs}: #{type_to_ooc(type)}\n"
+        fields = td[1].members.select { |x| x[1].type == 'field' }
+        tmp << "{ // #{type} {#{fields.map(&:first).join(', ')}}\n"
+        tmp << "  duk requireObjectCoercible(#{index})\n"
+        fields.each do |fd|
+          tmp << "  duk getPropString(#{index}, \"#{fd[0]}\")\n"
+          tmp << require_something("#{lhs} #{fd[0]}", fd[1].varTypeFqn, :index => -1, :mode => :assign) << "\n"
+          tmp << "  duk pop()\n"
+        end
+        tmp << "}"
+      else
+        op = case mode
+             when :declare
+               ':='
+             when :assign
+               '='
+             else
+               raise "Unknown mode: #{mode}"
+             end
+        tmp << "#{lhs} #{op} duk require#{type_to_duk(type)}(#{index}) as #{type_to_ooc(type)}"
+      end
+
+      indent(tmp, level)
+    end 
+
+    def push_something(rhs, type, level: 1)
+      tmp = ""
+      td = @registry.type_catalog[type]
+      if td && compound_cover?(td)
+        fields = td[1].members.select { |x| x[1].type == 'field' }
+        tmp << "{ // #{type} {#{fields.map(&:first).join(', ')}}\n"
+        tmp << "  objIdx := duk pushObject()\n"
+
+        fields.each do |fd|
+          tmp << push_something("#{rhs} #{fd[0]}", fd[1].varTypeFqn) + "\n"
+          tmp << "  duk putPropString(objIdx, \"#{fd[0]}\")\n"
+        end
+
+        tmp << "}"
+      else
+        tmp << "duk push#{type_to_duk(type)}(#{rhs})\n"
+      end
+
+      indent(tmp, level)
     end
 
     def type_to_duk(type)
@@ -290,7 +337,7 @@ module Collar
         
         if tokens.length == 2
           td = @registry.type_catalog[type]
-          if td
+          if td && td[1].type == 'cover'
             if compound_cover?(td)
               fields = td[1].members.select { |x| x[1].type == 'field' }
               info "#{type}: cover from #{td[1].from} with fields #{fields.map(&:first).join(", ")}"
