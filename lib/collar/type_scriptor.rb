@@ -58,7 +58,7 @@ module Collar
       end
 
       if mdef.modifiers.include? 'static'
-        f.write "  static #{mangled_name}: (#{arglist.join(', ')}) =>"
+        f.write "  static #{mangled_name}: (#{arglist.join(', ')}) => "
       else
         f.write "  #{mangled_name}(#{arglist.join(', ')}): "
       end
