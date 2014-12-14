@@ -47,9 +47,21 @@ module Collar
     end
 
     def spec_chosen?(spec)
-      return false if "#{spec.path}.ooc" == @universe
-      return false unless @opts[:packages].any? { |x| spec.path.start_with?(x) }
-      return false if @opts[:'exclude-packages'].any? { |x| spec.path.start_with?(x) }
+      if "#{spec.path}.ooc" == @universe
+        return false
+      end
+
+      unless @opts[:packages].any? { |x| spec.path.start_with?(x) }
+        debug "#{spec.path} skipped (not in --packages)"
+        return false 
+      end
+
+      @opts[:'exclude-packages'].each do |excl_pattern|
+        if spec.path.start_with?(excl_pattern)
+          debug "#{spec.path} skipped (matches #{excl_pattern})"
+          return false
+        end
+      end
 
       if spec.version.nil?
         bail "#{path}: version-less JSON file. Update rock and try again.".red

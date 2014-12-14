@@ -100,6 +100,7 @@ module Collar
       else
         info "Generating JSONs with rock...".yellow
         cmd = %Q{rock -q #{@universe} --backend=json --outpath=#{TMP_DIR}}
+        debug "> #{cmd}"
         unless system(cmd)
           bail "Error launching rock."
         end
