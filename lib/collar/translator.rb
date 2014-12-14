@@ -66,8 +66,6 @@ module Collar
           when 'method'
             translate_method(f, mb[1], cl[1].name, method_bindings)
           when 'field'
-            # TODO: handle properties :)
-            next unless mb[1].propertyData.nil?
             translate_field(f, mb[1], cl, property_bindings)
           end
         end
@@ -85,10 +83,14 @@ module Collar
         property_bindings.each do |bin|
           f << "  {"
           f << "    propIdx := duk pushObject()"
-          f << "    duk pushCFunction(#{bin.getter}, 0)"
-          f << "    duk putPropString(propIdx, \"get\")"
-          f << "    duk pushCFunction(#{bin.setter}, 1)"
-          f << "    duk putPropString(propIdx, \"set\")"
+          if bin.getter
+            f << "    duk pushCFunction(#{bin.getter}, 0)"
+            f << "    duk putPropString(propIdx, \"get\")"
+          end
+          if bin.setter
+            f << "    duk pushCFunction(#{bin.setter}, 1)"
+            f << "    duk putPropString(propIdx, \"set\")"
+          end
           f << "    duk getGlobalString(\"Object\")"
           f << "    duk getPropString(-1, \"defineProperty\")"
           f << "    duk dup(objIdx)"
@@ -215,52 +217,64 @@ module Collar
       ooc_name = unmangle(fdef.name)
       mangled_name = fdef.name.gsub(/~/, '_')
 
-      property_binding = Hashie::Mash.new(
-        :getter => "_duk_#{cl[1].fullName}_#{ooc_name}_getter",
-        :setter => "_duk_#{cl[1].fullName}_#{ooc_name}_setter",
-        :name => mangled_name,
-      )
-      property_bindings << property_binding
+      hasGetter = true
+      hasSetter = true
+      if fdef.propertyData
+        hasGetter = fdef.propertyData.hasGetter
+        hasSetter = fdef.propertyData.hasSetter
+      end
+
+      property_binding = Hashie::Mash.new(:name => mangled_name)
 
       #######################
       # Getter
       #######################
       
-      f << "#{property_binding.getter}: func (duk: DukContext) -> Int {"
+      if hasGetter
+        property_binding.getter = "_duk_#{cl[1].fullName}_#{ooc_name}_getter"
 
-      if static
-        f << "  __self := #{cl[1].name}"
-      else
-        f << "  duk pushThis()"
-        f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
-        f << "  duk pop()"
+        f << "#{property_binding.getter}: func (duk: DukContext) -> Int {"
+
+        if static
+          f << "  __self := #{cl[1].name}"
+        else
+          f << "  duk pushThis()"
+          f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
+          f << "  duk pop()"
+        end
+
+        f << push_something("__self #{ooc_name}", fdef.varTypeFqn)
+        f << "  return 1"
+
+        f << "}"
       end
-
-      f << push_something("__self #{ooc_name}", fdef.varTypeFqn)
-      f << "  return 1"
-
-      f << "}"
 
       #######################
       # Setter
       #######################
       
-      f << "#{property_binding.setter}: func (duk: DukContext) -> Int {"
+      if hasSetter
+        property_binding.setter = "_duk_#{cl[1].fullName}_#{ooc_name}_setter"
 
-      if static
-        f << "  __self := #{cl[1].name}"
-      else
-        f << "  duk pushThis()"
-        f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
-        f << "  duk pop()"
+        f << "#{property_binding.setter}: func (duk: DukContext) -> Int {"
+
+        if static
+          f << "  __self := #{cl[1].name}"
+        else
+          f << "  duk pushThis()"
+          f << "  __self := duk requireOoc(-1) as #{cl[1].name}"
+          f << "  duk pop()"
+        end
+
+        f << require_something(fdef.name, fdef.varTypeFqn)
+        f << "  __self #{ooc_name} = #{fdef.name}"
+
+        f << "  return 0"
+
+        f << "}"
       end
 
-      f << require_something(fdef.name, fdef.varTypeFqn)
-      f << "  __self #{ooc_name} = #{fdef.name}"
-
-      f << "  return 0"
-
-      f << "}"
+      property_bindings << property_binding
     end
 
     def indent(tmp, level)
