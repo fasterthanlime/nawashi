@@ -37,7 +37,6 @@ module Collar
       else
         hash.arguments = []
       end
-      puts "Fun type: #{hash.to_h.to_s}"
       hash
     end
 
