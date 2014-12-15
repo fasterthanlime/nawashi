@@ -105,7 +105,7 @@ module Collar
         end
         f << "  duk putGlobalString(\"#{class_name}\")"
         f << "  clazz := #{cl[0]}"
-        f << "  DUK_PROTO_CACHE put(clazz, \"#{class_name}\")"
+        f << "  DukContext putClass(clazz, \"#{class_name}\")"
         f << "}"
         f.nl
       end
@@ -158,7 +158,8 @@ module Collar
           f.nl
           f << "  duk requireObjectCoercible(#{i})"
 
-          closure_arg_types = fun_type_parse(arg[1]).arguments
+          fun_type = fun_type_parse(arg[3])
+          closure_arg_types = fun_type.arguments
           closure_arg_list = []
           closure_arg_types.each_with_index do |closure_arg_type, j|
             closure_arg_list << "__arg#{j}: #{type_to_ooc(closure_arg_type)}"
@@ -169,15 +170,24 @@ module Collar
           f << "  duk dup(#{i})"
           f << "  duk putGlobalString(closureID)"
           f.nl
-          f << "  #{arg[0]} := func (#{closure_arg_list.join(", ")}) {"
+          ret = if fun_type.return
+                  "-> #{type_to_ooc(fun_type.return)}"
+                else
+                  ""
+                end
+          f << "  #{arg[0]} := func (#{closure_arg_list.join(", ")}) #{ret} {"
           f << "    duk getGlobalString(closureID)"
           closure_arg_types.each_with_index do |closure_arg_type, j|
-            f << push_something("__arg#{j}", closure_arg_type)
+            f << push_something("__arg#{j}", closure_arg_type, :level => 2)
           end
-          f << "    if(duk pcall(#{closure_arg_list.length}) != 0) {"
-          f << "      raise(\"Error in closure: \" + duk safeToString(-1))"
-          f << "    }"
+          f << "    if(duk pcall(#{closure_arg_list.length}) != 0) { duk raise!() }"
+          if fun_type.return
+            f << require_something("__retval", fun_type.return, :level => 2, :index => -1)
+          end
           f << "    duk pop()"
+          if fun_type.return
+            f << "    return __retval"
+          end
           f << "  }"
           f.nl
         else
@@ -326,7 +336,12 @@ module Collar
 
         tmp << "}"
       else
-        tmp << "duk push#{type_to_duk(type)}(#{rhs})\n"
+        duked = type_to_duk(type)
+        if duked == "Ooc"
+          tmp << "duk push#{duked}(#{rhs}, \"#{type}\")\n"
+        else
+          tmp << "duk push#{duked}(#{rhs})\n"
+        end
       end
 
       indent(tmp, level)

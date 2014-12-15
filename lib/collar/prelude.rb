@@ -6,9 +6,15 @@ use duktape
 import structs/HashMap
 
 DUK_PROTO_CACHE := HashMap<Class, String> new()
+DUK_REVERSE_PROTO_CACHE := HashMap<String, Class> new()
 DUK_ID_SEED := 2424
 
 extend DukContext {
+    putClass: static func (clazz: Class, name: String) {
+      DUK_PROTO_CACHE put(clazz, name)
+      DUK_REVERSE_PROTO_CACHE put(name, clazz)
+    }
+
     freshID: static func -> String {
       DUK_ID_SEED += 1
       "_duk_seeded_" + DUK_ID_SEED
@@ -32,15 +38,27 @@ extend DukContext {
         res
     }
 
-    pushOoc: func (obj: Object)  {
+    pushOoc: func (obj: Object, protoName: String = null)  {
         objIdx := pushObject()
 
         if (obj != null) {
-          clazz := obj class
-          protoName := DUK_PROTO_CACHE get(clazz)
+          // if specified, check it exists
+          if (protoName) {
+            if (!DUK_REVERSE_PROTO_CACHE contains?(protoName)) {
+              // that won't do then - probably a subclass or something.
+              protoName = null
+            }
+          }
 
           if (!protoName) {
-              raise("No duk bindings for %s (class address: %p)" format(clazz name, clazz))
+            // try looking it up then.
+            clazz := obj class
+            protoName := DUK_PROTO_CACHE get(clazz)
+
+            if (!protoName) {
+                // couldn't find it by any means :(
+                raise("No duk bindings for %s (class address: %p)" format(clazz name, clazz))
+            }
           }
 
           getGlobalString(protoName)
