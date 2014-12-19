@@ -44,70 +44,13 @@ module Collar
       end
       f.nl
 
-      classes = @spec.entities.select do |en|
-        en[1].type == "class"
-      end
-
-      classes.each do |cl|
-        class_name = cl[1].fullName
-
-        parent_class = cl[1].extendsFullName
-        if parent_class != "lang_types__Object"
-          @inheritance_chains << [class_name, parent_class]
+      @spec.entities.each do |en|
+        case en[1].type
+        when 'class'
+          translate_class(f, en)
+        when 'enum'
+          translate_enum(f, en)
         end
-
-        method_bindings = []
-        property_bindings = []
-
-        cl[1].members.each do |mb|
-          next if (mb[0].start_with?('__')) || MEMBERS_BLACKLIST.include?(mb[0])
-
-          case mb[1].type
-          when 'method'
-            translate_method(f, mb[1], cl[1].name, method_bindings)
-          when 'field'
-            translate_field(f, mb[1], cl, property_bindings)
-          end
-        end
-
-        binder_name = "_bind_#{class_name}"
-        @all_bindings << binder_name
-        f << "#{binder_name}: func (duk: DukContext) {"
-        f << "  objIdx := duk pushObject()"
-        f.nl
-        method_bindings.each do |bin|
-          f << "  duk pushCFunction(#{bin.wrapper}, #{bin.nargs})"
-          f << "  duk putPropString(objIdx, \"#{bin.name}\")"
-          f.nl
-        end
-        property_bindings.each do |bin|
-          f << "  {"
-          f << "    propIdx := duk pushObject()"
-          if bin.getter
-            f << "    duk pushCFunction(#{bin.getter}, 0)"
-            f << "    duk putPropString(propIdx, \"get\")"
-          end
-          if bin.setter
-            f << "    duk pushCFunction(#{bin.setter}, 1)"
-            f << "    duk putPropString(propIdx, \"set\")"
-          end
-          f << "    duk getGlobalString(\"Object\")"
-          f << "    duk getPropString(-1, \"defineProperty\")"
-          f << "    duk dup(objIdx)"
-          f << "    duk pushString(\"#{bin.name}\")"
-          f << "    duk dup(propIdx)"
-          f << "    if (duk pcall(3) != 0) {"
-          f << "      raise(\"Failed to define property #{bin.name}: \#{duk safeToString(-1)}\")"
-          f << "    }"
-          f << "    duk pop3() // discard return value, Object and property handler"
-          f << "  }"
-          f.nl
-        end
-        f << "  duk putGlobalString(\"#{class_name}\")"
-        f << "  clazz := #{cl[0]}"
-        f << "  DukContext putClass(clazz, \"#{class_name}\")"
-        f << "}"
-        f.nl
       end
 
       import_tmp = []
@@ -383,6 +326,96 @@ module Collar
       end
     end
 
+    def translate_class(f, cl)
+      class_name = cl[1].fullName
+
+      parent_class = cl[1].extendsFullName
+      if parent_class != "lang_types__Object"
+        @inheritance_chains << [class_name, parent_class]
+      end
+
+      method_bindings = []
+      property_bindings = []
+
+      cl[1].members.each do |mb|
+        next if (mb[0].start_with?('__')) || MEMBERS_BLACKLIST.include?(mb[0])
+
+        case mb[1].type
+        when 'method'
+          translate_method(f, mb[1], cl[1].name, method_bindings)
+        when 'field'
+          translate_field(f, mb[1], cl, property_bindings)
+        end
+      end
+
+      make_mimic(f, cl[0], class_name,
+                 :methods => method_bindings,
+                 :properties => property_bindings)
+    end
+
+    def translate_enum(f, en)
+      short_name = en[0]
+      enum_name = "#{@spec.path.gsub(/\//, '_')}__#{en[0]}"
+      info "Enum name: #{enum_name}"
+
+      field_bindings = []
+      en[1].elements.each do |mb|
+        name = mb[0]
+        field_bindings << Hashie::Mash.new(
+          :name => name,
+          :value => "#{short_name} #{name}"
+        )
+      end
+
+      make_mimic(f, short_name, enum_name,
+                 :static_fields => field_bindings)
+    end
+
+    def make_mimic(f, short_name, type_name, methods: [], properties: [], static_fields: [])
+      binder_name = "_bind_#{type_name}"
+      @all_bindings << binder_name
+      f << "#{binder_name}: func (duk: DukContext) {"
+      f << "  objIdx := duk pushObject()"
+      f.nl
+      methods.each do |bin|
+        f << "  duk pushCFunction(#{bin.wrapper}, #{bin.nargs})"
+        f << "  duk putPropString(objIdx, \"#{bin.name}\")"
+        f.nl
+      end
+      static_fields.each do |bin|
+        f << "  duk pushInt((#{bin.value}) as Int)"
+        f << "  duk putPropString(objIdx, \"#{bin.name}\")"
+        f.nl
+      end
+      properties.each do |bin|
+        f << "  {"
+        f << "    propIdx := duk pushObject()"
+        if bin.getter
+          f << "    duk pushCFunction(#{bin.getter}, 0)"
+          f << "    duk putPropString(propIdx, \"get\")"
+        end
+        if bin.setter
+          f << "    duk pushCFunction(#{bin.setter}, 1)"
+          f << "    duk putPropString(propIdx, \"set\")"
+        end
+        f << "    duk getGlobalString(\"Object\")"
+        f << "    duk getPropString(-1, \"defineProperty\")"
+        f << "    duk dup(objIdx)"
+        f << "    duk pushString(\"#{bin.name}\")"
+        f << "    duk dup(propIdx)"
+        f << "    if (duk pcall(3) != 0) {"
+        f << "      raise(\"Failed to define property #{bin.name}: \#{duk safeToString(-1)}\")"
+        f << "    }"
+        f << "    duk pop3() // discard return value, Object and property handler"
+        f << "  }"
+        f.nl
+      end
+      f << "  duk putGlobalString(\"#{type_name}\")"
+      f << "  clazz := #{short_name}"
+      f << "  DukContext putClass(clazz, \"#{type_name}\")"
+      f << "}"
+      f.nl
+    end
 
   end
 end
