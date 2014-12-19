@@ -28,12 +28,12 @@ module Collar
     def doall
       jsons = get_jsons
 
-      ext = Collar::Fool.new("#{@opts[:output]}/extensions.ooc")
+      ext = Fool.new("#{@opts[:output]}/extensions.ooc")
       ext << AUTOGEN_NOTICE
       ext << PRELUDE
       ext.close
 
-      f = Collar::Fool.new("#{@opts[:output]}/autobindings.ooc")
+      f = Fool.new("#{@opts[:output]}/autobindings.ooc")
 
       f << AUTOGEN_NOTICE
 
@@ -90,9 +90,31 @@ module Collar
       f << "}"
       f.close
 
+      make_packages!(registry) if @opts[:typescript]
     end
 
     private
+
+    def make_packages!(registry)
+      packages = {}
+      registry.specs.each do |spec|
+        path = spec.path.split("/").first
+        next if registry.spec_paths.include?(path)
+
+        packages[path] ||= []
+        packages[path] << spec.path
+      end
+      puts "Packages: #{packages}"
+
+      packages.each do |name, components|
+        f = Fool.new("#{@opts[:typescript]}/#{name}.ts")
+        components.each do |comp|
+          name = comp.split('/').drop(1).join('_')
+          f << "export import #{name} = require(\"./#{comp}\");"
+        end
+        f.close
+      end
+    end
 
     def get_jsons
       if File.exist?(TMP_DIR)
