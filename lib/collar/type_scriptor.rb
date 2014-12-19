@@ -26,50 +26,15 @@ module Collar
       end
       f.nl
 
-      classes = @spec.entities.select { |en| en[1].type == "class" }
-
-      classes.each do |cl|
-        class_short_name = cl[1].name
-        class_long_name = cl[1].fullName
-
-        static_members = []
-        nonstatic_members = []
-
-        cl[1].members.each do |mb|
-          next if (mb[0].start_with?('__')) || MEMBERS_BLACKLIST.include?(mb[0])
-          if mb[1].modifiers.include? 'static'
-            static_members << mb
-          else
-            nonstatic_members << mb
-          end
+      @spec.entities.each do |en|
+        case en[1].type
+        when 'class'
+          translate_class(f, en)
+        when 'enum'
+          translate_enum(f, en)
+        when 'cover'
+          translate_cover(f, en)
         end
-
-        f<< "export interface #{class_long_name}_static {"
-        static_members.each { |mb| translate_member(f, mb) }
-        f << "};"
-        f.nl
-
-        f.write "export interface #{class_long_name} "
-        if cl[1].extendsFullName && viable_imported_type?(cl[1].extendsFullName)
-          f.write "extends #{type_to_ts(cl[1].extendsFullName)} "
-        end
-
-        f << "{"
-        nonstatic_members.each { |mb| translate_member(f, mb) }
-        f << "};"
-        f << "export interface #{class_short_name} extends #{class_long_name} {};"
-        f << "declare var #{class_long_name}: #{class_long_name}_static;"
-        f << "export var #{class_short_name} = #{class_long_name};"
-        f.nl
-      end
-
-      typelikes_types = %w(enum cover)
-      typelikes = @spec.entities.select { |en| typelikes_types.include?(en[1].type) }
-      typelikes.each do |tl|
-        short_name = tl[1].name
-        long_name = "#{@spec.path.gsub('/', '_')}__#{tl[1].name}"
-        f << "class #{long_name} {};"
-        f << "export class #{short_name} extends #{long_name} {};"
       end
 
       import_tmp = []
@@ -82,11 +47,65 @@ module Collar
       f.close
     end
 
+    def translate_cover(f, cv)
+      short_name = cv[1].name
+      long_name = "#{@spec.path.gsub('/', '_')}__#{cv[1].name}"
+      f << "class #{long_name} {};"
+      f << "export class #{short_name} extends #{long_name} {};"
+    end
+
+    def translate_enum(f, en)
+      short_name = en[1].name
+      long_name = "#{@spec.path.gsub('/', '_')}__#{en[1].name}"
+      f << "export interface #{long_name}_static {"
+      en[1].elements.each do |mb|
+        f << "  #{mb[0]}: number;"
+      end
+      f << "};"
+      f << "declare var #{long_name}: #{long_name}_static;"
+      f << "export var #{short_name} = #{long_name};"
+    end
+
+    def translate_class(f, cl)
+      class_short_name = cl[1].name
+      class_long_name = cl[1].fullName
+
+      static_members = []
+      nonstatic_members = []
+
+      cl[1].members.each do |mb|
+        next if (mb[0].start_with?('__')) || MEMBERS_BLACKLIST.include?(mb[0])
+        if mb[1].modifiers.include? 'static'
+          static_members << mb
+        else
+          nonstatic_members << mb
+        end
+      end
+
+      f<< "export interface #{class_long_name}_static {"
+      static_members.each { |mb| translate_member(f, mb) }
+      f << "};"
+      f.nl
+
+      f.write "export interface #{class_long_name} "
+      if cl[1].extendsFullName && viable_imported_type?(cl[1].extendsFullName)
+        f.write "extends #{type_to_ts(cl[1].extendsFullName)} "
+      end
+
+      f << "{"
+      nonstatic_members.each { |mb| translate_member(f, mb) }
+      f << "};"
+      f << "export interface #{class_short_name} extends #{class_long_name} {};"
+      f << "declare var #{class_long_name}: #{class_long_name}_static;"
+      f << "export var #{class_short_name} = #{class_long_name};"
+      f.nl
+    end
+
     def import_if_necessary(imp)
-        return if imp.start_with?("lang/")
-        return unless @registry.spec_paths.include?(imp)
-        return if @imports.include?(imp)
-        @imports << imp
+      return if imp.start_with?("lang/")
+      return unless @registry.spec_paths.include?(imp)
+      return if @imports.include?(imp)
+      @imports << imp
     end
 
     private
@@ -162,19 +181,24 @@ module Collar
       when "Void", "void"
         "void"
       else
-        tokens = type.split('__')
-        return "any" unless tokens.length == 2
-
-        type_path, type_name = tokens
-        imp_path = type_path.gsub('_', '/')
-
-        if type_path == @spec.path.gsub('/', '_')
-          type
-        elsif @registry.spec_paths.include?(imp_path)
-          import_if_necessary(imp_path)
-          "#{type_path}.#{type_name}"
+        td = @registry.type_catalog[type]
+        if td && td[1].type == 'enum'
+          "number"
         else
-          "any"
+          tokens = type.split('__')
+          return "any" unless tokens.length == 2
+
+          type_path, type_name = tokens
+          imp_path = type_path.gsub('_', '/')
+
+          if type_path == @spec.path.gsub('/', '_')
+            type
+          elsif @registry.spec_paths.include?(imp_path)
+            import_if_necessary(imp_path)
+            "#{type_path}.#{type_name}"
+          else
+            "any"
+          end
         end
       end
     end
