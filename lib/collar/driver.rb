@@ -104,7 +104,7 @@ module Collar
         packages[path] ||= []
         packages[path] << spec.path
       end
-      puts "Packages: #{packages}"
+      info "Packages: #{packages.keys.join(", ")}"
 
       packages.each do |name, components|
         f = Fool.new("#{@opts[:typescript]}/#{name}.ts")

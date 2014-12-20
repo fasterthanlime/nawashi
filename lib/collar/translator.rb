@@ -356,7 +356,6 @@ module Collar
     def translate_enum(f, en)
       short_name = en[0]
       enum_name = "#{@spec.path.gsub(/\//, '_')}__#{en[0]}"
-      info "Enum name: #{enum_name}"
 
       field_bindings = []
       en[1].elements.each do |mb|
