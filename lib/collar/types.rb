@@ -5,7 +5,18 @@ module Collar
   module Types
     INT_TYPE_RE = /^(U|S)?(Int|Short|Long|SizeT)(8|16|32|64|128)?$/
     NUM_TYPE_RE = /^(Cp)?(Float|Double)(32|64|128)?$/
+    PTR_TYPE_RE = /^pointer\(.*\)$/
     FUN_TYPE_RE = /^Func\(.*\)$/
+
+    def type_is_ptr?(type)
+      type =~ PTR_TYPE_RE
+    end
+
+    def ptr_type_parse(type)
+      inner = /^pointer\(([^\)]*)\)$/.match(type)
+      raise "Not a pointer type: #{type}" unless inner
+      inner[1]
+    end
 
     def type_is_fun?(type)
       type =~ FUN_TYPE_RE
@@ -42,8 +53,8 @@ module Collar
 
     def type_to_ooc(type)
       type
-        .gsub(/^(.+)__(.+)$/) { type_to_ooc($2) }
-        .gsub(/pointer\((.+)\)/) { "#{type_to_ooc($1)}*" }
+        .gsub(/^([A-Za-z0-9_]+)__([A-Za-z0-9_]+)$/) { type_to_ooc($2) }
+        .gsub(/pointer\(([^\)]*?)\)/) { "#{type_to_ooc($1)}*" }
         .gsub(/array\((.+)\)/) { "#{type_to_ooc($1)}[]" }
         .gsub(/Func\(arguments\((.+)\)\)/) { "Func(#{$1})" }
     end
@@ -52,7 +63,6 @@ module Collar
       return false if type == '...'
       return false if type.start_with?('array(')
       return false if type.start_with?('reference(')
-      return false if type.start_with?('pointer(')
       true
     end
 

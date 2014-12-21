@@ -70,7 +70,7 @@ module Collar
 
     def translate_class(f, cl)
       class_short_name = cl[1].name
-      class_long_name = cl[1].fullName
+      class_long_name = cl[1].nameFqn
 
       static_members = []
       nonstatic_members = []
@@ -90,8 +90,8 @@ module Collar
       f.nl
 
       f.write "export interface #{class_long_name} "
-      if cl[1].extendsFullName && viable_imported_type?(cl[1].extendsFullName)
-        f.write "extends #{type_to_ts(cl[1].extendsFullName)} "
+      if cl[1].extendsFqn && viable_imported_type?(cl[1].extendsFqn)
+        f.write "extends #{type_to_ts(cl[1].extendsFqn)} "
       end
 
       f << "{"

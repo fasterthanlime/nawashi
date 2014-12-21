@@ -85,7 +85,7 @@ module Collar
       static = mdef.modifiers.include? 'static'
 
       method_binding = Hashie::Mash.new(
-        :wrapper => "_duk_#{mdef.fullName}",
+        :wrapper => "_duk_#{mdef.nameFqn}",
         :nargs => mdef.arguments.length,
         :name => mangled_name,
       )
@@ -145,7 +145,7 @@ module Collar
       
       # No getters for closures.
       if hasGetter && !type_is_fun?(fdef.varTypeFqn)
-        property_binding.getter = "_duk_#{cl[1].fullName}_#{ooc_name}_getter"
+        property_binding.getter = "_duk_#{cl[1].nameFqn}_#{ooc_name}_getter"
 
         f << "#{property_binding.getter}: func (duk: DukContext) -> Int {"
 
@@ -168,7 +168,7 @@ module Collar
       #######################
       
       if hasSetter
-        property_binding.setter = "_duk_#{cl[1].fullName}_#{ooc_name}_setter"
+        property_binding.setter = "_duk_#{cl[1].nameFqn}_#{ooc_name}_setter"
 
         f << "#{property_binding.setter}: func (duk: DukContext) -> Int {"
 
@@ -251,6 +251,24 @@ module Collar
         if fun_type.return
           tmp << "  return __retval\n"
         end
+        tmp << "}\n"
+      elsif type_is_ptr?(type)
+        inner = ptr_type_parse(type)
+        tmp << "#{lhs}: #{type_to_ooc(inner)}*\n"
+        tmp << "{ // array of #{inner}\n"
+        tmp << "  duk requireObjectCoercible(#{index})\n"
+        tmp << "  duk getPropString(#{index}, \"length\")\n"
+        tmp << "  __len := duk requireInt(-1) as Int\n"
+        tmp << "  duk pop() // pop length\n"
+        tmp << "  \"Got array of length %d\" printfln(__len)\n"
+        tmp << "  #{lhs} = gc_malloc(__len * (#{type_to_ooc(inner)} size))\n"
+        tmp << "  for (__i in 0..__len) {\n"
+        tmp << "    duk getPropIndex(#{index}, __i)\n"
+        tmp << require_something("__elm", inner, :level => 2, :index => -1)
+        tmp << "\n"
+        tmp << "    #{lhs}[__i] = __elm\n"
+        tmp << "    duk pop() // pop elm\n"
+        tmp << "  }\n"
         tmp << "}\n"
       else
         op = case mode
@@ -343,9 +361,9 @@ module Collar
     end
 
     def translate_class(f, cl)
-      class_name = cl[1].fullName
+      class_name = cl[1].nameFqn
 
-      parent_class = cl[1].extendsFullName
+      parent_class = cl[1].extendsFqn
       if parent_class != "lang_types__Object"
         @inheritance_chains << [class_name, parent_class]
       end
@@ -396,6 +414,11 @@ module Collar
         # in this case it seems.
         return true if fun_type.return == "any"
         return true if fun_type.arguments.include?("any")
+      end
+      if type_is_ptr?(type)
+        ptr_type = ptr_type_parse(type)
+        return true if generic_types.include?(ptr_type)
+        return true if ptr_type == "any"
       end
       false
     end
