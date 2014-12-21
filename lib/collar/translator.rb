@@ -280,9 +280,15 @@ module Collar
         tmp << "}"
       else
         duked = type_to_duk(type)
-        if duked == "Ooc"
+        case duked
+        when 'Ooc'
+          # Pass class name for reverse lookup
           tmp << "duk push#{duked}(#{rhs}, \"#{type}\")\n"
+        when 'Int'
+          # Enums might need casting to int
+          tmp << "duk push#{duked}(#{rhs} as Int)\n"
         else
+          # Should work out of the box
           tmp << "duk push#{duked}(#{rhs})\n"
         end
       end
@@ -309,11 +315,8 @@ module Collar
         
         if tokens.length == 2
           td = @registry.type_catalog[type]
-          if td && td[1].type == 'cover'
-            if compound_cover?(td)
-              fields = td[1].members.select { |x| x[1].type == 'field' }
-              info "#{type}: cover from #{td[1].from} with fields #{fields.map(&:first).join(", ")}"
-            end
+          if td && td[1].type == 'enum'
+            return "Int"
           end
 
           type_path, type_name = tokens
@@ -337,11 +340,14 @@ module Collar
       method_bindings = []
       property_bindings = []
 
+      generic_types = cl[1].genericTypes
+
       cl[1].members.each do |mb|
         next if (mb[0].start_with?('__')) || MEMBERS_BLACKLIST.include?(mb[0])
 
         case mb[1].type
         when 'method'
+          next if method_has_generics?(generic_types, mb[1])
           translate_method(f, mb[1], cl[1].name, method_bindings)
         when 'field'
           translate_field(f, mb[1], cl, property_bindings)
@@ -351,6 +357,21 @@ module Collar
       make_mimic(f, cl[0], class_name,
                  :methods => method_bindings,
                  :properties => property_bindings)
+    end
+
+    def method_has_generics?(generic_types, mdef)
+      return true unless mdef.genericTypes.empty?
+      return true if generic_types.include?(mdef.returnType)
+      return true if mdef.arguments.any? do |arg|
+        return true if generic_types.include?(arg[1])
+        if type_is_fun?(arg[1])
+          fun_type = fun_type_parse(arg[1])
+          return true if fun_type.return && generic_types.include?(fun_type.return)
+          return true if fun_type.arguments.any? { |iarg| generic_types.include?(iarg) }
+        end
+        false
+      end
+      false
     end
 
     def translate_enum(f, en)

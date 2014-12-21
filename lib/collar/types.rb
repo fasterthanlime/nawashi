@@ -3,7 +3,7 @@ require 'hashie'
 
 module Collar
   module Types
-    INT_TYPE_RE = /^U?(Int|Short|Long)(8|16|32|64|128)?$/
+    INT_TYPE_RE = /^(U|S)?(Int|Short|Long|SizeT)(8|16|32|64|128)?$/
     NUM_TYPE_RE = /^(Cp)?(Float|Double)(32|64|128)?$/
     FUN_TYPE_RE = /^Func\(.*\)$/
 
