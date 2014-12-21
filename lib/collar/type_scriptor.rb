@@ -2,12 +2,14 @@
 require 'collar/fool'
 require 'collar/blacklist'
 require 'collar/types'
+require 'collar/logger'
 
 module Collar
   class TypeScriptor
     include Collar::Mangler
     include Collar::Blacklist
     include Collar::Types
+    include Collar::Logger
   
     def initialize(opts, spec, registry)
       @opts = opts
@@ -183,22 +185,32 @@ module Collar
       else
         td = @registry.type_catalog[type]
         if td && td[1].type == 'enum'
-          "number"
-        else
-          tokens = type.split('__')
-          return "any" unless tokens.length == 2
+          return "number"
+        end
 
-          type_path, type_name = tokens
-          imp_path = type_path.gsub('_', '/')
-
-          if type_path == @spec.path.gsub('/', '_')
-            type
-          elsif @registry.spec_paths.include?(imp_path)
-            import_if_necessary(imp_path)
-            "#{type_path}.#{type_name}"
-          else
-            "any"
+        if td && td[1].type == 'cover'
+          if td[1].fromFqn
+            under = type_to_ts(td[1].fromFqn)
+            if under != "any"
+              # found primitive cover! use that :)
+              return under
+            end
           end
+        end
+
+        tokens = type.split('__')
+        return "any" unless tokens.length == 2
+
+        type_path, type_name = tokens
+        imp_path = type_path.gsub('_', '/')
+
+        if type_path == @spec.path.gsub('/', '_')
+          type
+        elsif @registry.spec_paths.include?(imp_path)
+          import_if_necessary(imp_path)
+          "#{type_path}.#{type_name}"
+        else
+          "any"
         end
       end
     end

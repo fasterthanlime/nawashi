@@ -13,7 +13,7 @@ module Collar
     attr_reader :spec_paths
     attr_reader :type_catalog
 
-    MIN_JSON_VERSION = Versionomy.parse("1.2.1")
+    MIN_JSON_VERSION = Versionomy.parse("1.2.2")
 
     def initialize(opts, universe, all_specs)
       @opts = opts

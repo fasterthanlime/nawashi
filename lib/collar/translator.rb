@@ -319,6 +319,16 @@ module Collar
             return "Int"
           end
 
+          if td && td[1].type == 'cover'
+            if td[1].fromFqn
+              under = type_to_duk(td[1].fromFqn)
+              if under != "Ooc"
+                # found primitive cover! use that :)
+                return under
+              end
+            end
+          end
+
           type_path, type_name = tokens
           imp_path = type_path.gsub('_', '/')
           import_if_necessary(imp_path)
