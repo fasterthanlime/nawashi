@@ -260,7 +260,6 @@ module Collar
         tmp << "  duk getPropString(#{index}, \"length\")\n"
         tmp << "  __len := duk requireInt(-1) as Int\n"
         tmp << "  duk pop() // pop length\n"
-        tmp << "  \"Got array of length %d\" printfln(__len)\n"
         tmp << "  #{lhs} = gc_malloc(__len * (#{type_to_ooc(inner)} size))\n"
         tmp << "  for (__i in 0..__len) {\n"
         tmp << "    duk getPropIndex(#{index}, __i)\n"
