@@ -96,47 +96,8 @@ module Collar
       args = []
 
       mdef.arguments.each_with_index do |arg, i|
-        if type_is_fun?(arg[1])
-          args << arg[0]
-          f.nl
-          f << "  duk requireObjectCoercible(#{i})"
-
-          fun_type = fun_type_parse(arg[3])
-          closure_arg_types = fun_type.arguments
-          closure_arg_list = []
-          closure_arg_types.each_with_index do |closure_arg_type, j|
-            closure_arg_list << "__arg#{j}: #{type_to_ooc(closure_arg_type)}"
-          end
-
-          f.nl
-          f << "  closureID := DukContext freshID()"
-          f << "  duk dup(#{i})"
-          f << "  duk putGlobalString(closureID)"
-          f.nl
-          ret = if fun_type.return
-                  "-> #{type_to_ooc(fun_type.return)}"
-                else
-                  ""
-                end
-          f << "  #{arg[0]} := func (#{closure_arg_list.join(", ")}) #{ret} {"
-          f << "    duk getGlobalString(closureID)"
-          closure_arg_types.each_with_index do |closure_arg_type, j|
-            f << push_something("__arg#{j}", closure_arg_type, :level => 2)
-          end
-          f << "    if(duk pcall(#{closure_arg_list.length}) != 0) { duk raise!() }"
-          if fun_type.return
-            f << require_something("__retval", fun_type.return, :level => 2, :index => -1)
-          end
-          f << "    duk pop()"
-          if fun_type.return
-            f << "    return __retval"
-          end
-          f << "  }"
-          f.nl
-        else
-          args << arg[0]
-          f << require_something(arg[0], arg[3], :index => i)
-        end
+        args << arg[0]
+        f << require_something(arg[0], arg[3], :index => i)
       end
       f.nl
 
@@ -164,7 +125,6 @@ module Collar
 
     def translate_field(f, fdef, cl, property_bindings)
       return unless supported_type?(fdef.varType)
-      return if type_is_fun?(fdef.varType)
       static = fdef.modifiers.include? 'static'
 
       ooc_name = unmangle(fdef.name)
@@ -183,7 +143,8 @@ module Collar
       # Getter
       #######################
       
-      if hasGetter
+      # No getters for closures.
+      if hasGetter && !type_is_fun?(fdef.varTypeFqn)
         property_binding.getter = "_duk_#{cl[1].fullName}_#{ooc_name}_getter"
 
         f << "#{property_binding.getter}: func (duk: DukContext) -> Int {"
@@ -220,7 +181,12 @@ module Collar
         end
 
         f << require_something(fdef.name, fdef.varTypeFqn)
-        f << "  __self #{ooc_name} = #{fdef.name}"
+        if type_is_fun?(fdef.varTypeFqn)
+          # closures require special handling :((
+          f << "  __self #{ooc_name} = #{fdef.name} as Func"
+        else
+          f << "  __self #{ooc_name} = #{fdef.name}"
+        end
 
         f << "  return 0"
 
@@ -249,6 +215,43 @@ module Collar
           tmp << "  duk pop()\n"
         end
         tmp << "}"
+      elsif type_is_fun?(type)
+        tmp << "\n"
+        tmp << "duk requireObjectCoercible(#{index})\n"
+
+        fun_type = fun_type_parse(type)
+        closure_arg_types = fun_type.arguments
+        closure_arg_list = []
+        closure_arg_types.each_with_index do |closure_arg_type, j|
+          closure_arg_list << "__arg#{j}: #{type_to_ooc(closure_arg_type)}"
+        end
+
+        tmp << "\n"
+        tmp << "closureID := DukContext freshID()\n"
+        tmp << "duk dup(#{index})\n"
+        tmp << "duk putGlobalString(closureID)\n"
+        tmp << "\n"
+        ret = if fun_type.return
+                "-> #{type_to_ooc(fun_type.return)}"
+              else
+                ""
+              end
+        tmp << "#{lhs} := func (#{closure_arg_list.join(", ")}) #{ret} {\n"
+        tmp << "  duk getGlobalString(closureID)\n"
+        closure_arg_types.each_with_index do |closure_arg_type, j|
+          tmp << push_something("__arg#{j}", closure_arg_type, :level => level)
+          tmp << "\n"
+        end
+        tmp << "  if(duk pcall(#{closure_arg_list.length}) != 0) { duk raise!() }\n"
+        if fun_type.return
+          tmp << require_something("__retval", fun_type.return, :level => 1, :index => -1)
+          tmp << "\n"
+        end
+        tmp << "  duk pop()\n"
+        if fun_type.return
+          tmp << "  return __retval\n"
+        end
+        tmp << "}\n"
       else
         op = case mode
              when :declare
@@ -360,6 +363,7 @@ module Collar
           next if method_has_generics?(generic_types, mb[1])
           translate_method(f, mb[1], cl[1].name, method_bindings)
         when 'field'
+          next if field_has_generics?(generic_types, mb[1])
           translate_field(f, mb[1], cl, property_bindings)
         end
       end
@@ -380,6 +384,18 @@ module Collar
           return true if fun_type.arguments.any? { |iarg| generic_types.include?(iarg) }
         end
         false
+      end
+      false
+    end
+
+    def field_has_generics?(generic_types, fdef)
+      type = fdef.varTypeFqn
+      if type_is_fun?(type)
+        fun_type = fun_type_parse(type)
+        # bit of a peculiar case, but generic types in Func types end up as "any"
+        # in this case it seems.
+        return true if fun_type.return == "any"
+        return true if fun_type.arguments.include?("any")
       end
       false
     end
