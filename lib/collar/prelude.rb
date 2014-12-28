@@ -32,6 +32,7 @@ extend DukContext {
     }
 
     requireOoc: func (index: Int) -> Object {
+        if (isNull(index)) { return null; }
         getPropString(index, "pointer")
         res := requirePointer(-1)
         pop()
