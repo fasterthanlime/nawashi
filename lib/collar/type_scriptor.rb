@@ -181,7 +181,7 @@ module Collar
       when "lang_types__Bool"
         "boolean"
       when "Void", "void"
-        "void"
+        "any"
       else
         td = @registry.type_catalog[type]
         if td && td[1].type == 'enum'
