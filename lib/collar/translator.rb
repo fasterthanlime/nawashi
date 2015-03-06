@@ -448,35 +448,23 @@ module Collar
       methods.each do |bin|
         f << "  duk pushCFunction(#{bin.wrapper}, #{bin.nargs})"
         f << "  duk putPropString(objIdx, \"#{bin.name}\")"
-        f.nl
       end
       static_fields.each do |bin|
         f << "  duk pushInt((#{bin.value}) as Int)"
         f << "  duk putPropString(objIdx, \"#{bin.name}\")"
-        f.nl
       end
       properties.each do |bin|
-        f << "  {"
-        f << "    propIdx := duk pushObject()"
+        f << "  duk pushString(\"#{bin.name}\")"
+        flags = ""
         if bin.getter
-          f << "    duk pushCFunction(#{bin.getter}, 0)"
-          f << "    duk putPropString(propIdx, \"get\")"
+          f << "  duk pushCFunction(#{bin.getter}, 0)"
+          flags << "| PropFlags HAVE_GETTER "
         end
         if bin.setter
-          f << "    duk pushCFunction(#{bin.setter}, 1)"
-          f << "    duk putPropString(propIdx, \"set\")"
+          f << "  duk pushCFunction(#{bin.setter}, 1)"
+          flags << "| PropFlags HAVE_SETTER "
         end
-        f << "    duk getGlobalString(\"Object\")"
-        f << "    duk getPropString(-1, \"defineProperty\")"
-        f << "    duk dup(objIdx)"
-        f << "    duk pushString(\"#{bin.name}\")"
-        f << "    duk dup(propIdx)"
-        f << "    if (duk pcall(3) != 0) {"
-        f << "      raise(\"Failed to define property #{bin.name}: \#{duk safeToString(-1)}\")"
-        f << "    }"
-        f << "    duk pop3() // discard return value, Object and property handler"
-        f << "  }"
-        f.nl
+        f << "  duk defProp(objIdx, 0 #{flags})"
       end
       f << "  duk putGlobalString(\"#{type_name}\")"
       f << "  clazz := #{short_name}"
