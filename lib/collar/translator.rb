@@ -226,10 +226,12 @@ module Collar
           closure_arg_list << "__arg#{j}: #{type_to_ooc(closure_arg_type)}"
         end
 
+        closureID = "#{lhs}ClosureID"
+
         tmp << "\n"
-        tmp << "closureID := DukContext freshID()\n"
+        tmp << "#{closureID} := DukContext freshID()\n"
         tmp << "duk dup(#{index})\n"
-        tmp << "duk putGlobalString(closureID)\n"
+        tmp << "duk putGlobalString(#{closureID})\n"
         tmp << "\n"
         ret = if fun_type.return
                 "-> #{type_to_ooc(fun_type.return)}"
@@ -237,7 +239,7 @@ module Collar
                 ""
               end
         tmp << "#{lhs} := func (#{closure_arg_list.join(", ")}) #{ret} {\n"
-        tmp << "  duk getGlobalString(closureID)\n"
+        tmp << "  duk getGlobalString(#{closureID})\n"
         closure_arg_types.each_with_index do |closure_arg_type, j|
           tmp << push_something("__arg#{j}", closure_arg_type, :level => level)
           tmp << "\n"
