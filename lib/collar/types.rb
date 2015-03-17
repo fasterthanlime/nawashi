@@ -75,6 +75,12 @@ module Collar
       false 
     end
 
+    def raw_duk?(mdef)
+      return false unless mdef.arguments.size == 1
+      return false unless mdef.arguments[0][3] == "duk_tape__DukContext"
+      return false unless mdef.returnTypeFqn == "lang_Numbers__Int"
+    end
+
   end
 end
 

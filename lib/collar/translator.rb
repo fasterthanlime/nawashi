@@ -94,22 +94,9 @@ module Collar
       f << "#{method_binding.wrapper}: func (duk: DukContext) -> Int {"
 
       args = []
-      raw = mdef.name =~ /~rawduk$/
+      raw = raw_duk?(mdef)
 
       if raw
-        if mdef.arguments.size != 1
-          raise "Too many arguments for #{mdef.name} in #{class_name}"
-        end
-        _arg = mdef.arguments[0]
-
-        if _arg[3] != "duk_tape__DukContext"
-          raise "Wrong arg type for #{mdef.name} in #{class_name}"
-        end
-
-        if mdef.returnType != "Int"
-          raise "Wrong return type for #{mdef.name} in #{class_name}"
-        end
-
         args << "duk"
       else
         mdef.arguments.each_with_index do |arg, i|

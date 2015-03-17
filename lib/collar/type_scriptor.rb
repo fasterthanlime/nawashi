@@ -131,9 +131,16 @@ module Collar
       mangled_name = mdef.name.gsub(/~/, '_')
 
       arglist = []
-      mdef.arguments.each do |arg|
-        arglist << "#{arg[0]}: #{type_to_ts(arg[3])}"
+      raw = raw_duk?(mdef)
+
+      if raw
+        mdef.arguments.each do |arg|
+          arglist << "#{arg[0]}: #{type_to_ts(arg[3])}"
+        end
+      else
+        arglist << "...args"
       end
+
 
       if mdef.name == 'new'
         f.write "  #{mangled_name}: (#{arglist.join(', ')}) => "
