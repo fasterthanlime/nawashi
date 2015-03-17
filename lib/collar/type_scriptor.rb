@@ -134,11 +134,11 @@ module Collar
       raw = raw_duk?(mdef)
 
       if raw
+        arglist << "...args"
+      else
         mdef.arguments.each do |arg|
           arglist << "#{arg[0]}: #{type_to_ts(arg[3])}"
         end
-      else
-        arglist << "...args"
       end
 
 

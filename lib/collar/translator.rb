@@ -83,10 +83,11 @@ module Collar
       ooc_name = unmangle(mdef.name)
       mangled_name = mdef.name.gsub(/~/, '_')
       static = mdef.modifiers.include? 'static'
+      raw = raw_duk?(mdef)
 
       method_binding = Hashie::Mash.new(
         :wrapper => "_duk_#{mdef.nameFqn}",
-        :nargs => mdef.arguments.length,
+        :nargs => raw ? "DUK_VARARGS" : mdef.arguments.length,
         :name => mangled_name,
       )
       method_bindings << method_binding
@@ -94,7 +95,6 @@ module Collar
       f << "#{method_binding.wrapper}: func (duk: DukContext) -> Int {"
 
       args = []
-      raw = raw_duk?(mdef)
 
       if raw
         args << "duk"
