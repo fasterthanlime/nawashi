@@ -94,15 +94,33 @@ module Collar
       f << "#{method_binding.wrapper}: func (duk: DukContext) -> Int {"
 
       args = []
+      raw = mdef.name =~ /~rawduk$/
 
-      mdef.arguments.each_with_index do |arg, i|
-        args << arg[0]
-        f << require_something(arg[0], arg[3], :index => i)
+      if raw
+        if mdef.arguments.size != 1
+          raise "Too many arguments for #{mdef.name} in #{class_name}"
+        end
+        _arg = mdef.arguments[0]
+
+        if _arg[3] != "duk_tape__DukContext"
+          raise "Wrong arg type for #{mdef.name} in #{class_name}"
+        end
+
+        if mdef.returnType != "Int"
+          raise "Wrong return type for #{mdef.name} in #{class_name}"
+        end
+
+        args << "duk"
+      else
+        mdef.arguments.each_with_index do |arg, i|
+          args << arg[0]
+          f << require_something(arg[0], arg[3], :index => i)
+        end
+        f.nl
       end
-      f.nl
 
       arglist = args.join(", ")
-      mvoid = mdef.returnType.nil?
+      mvoid = mdef.returnType.nil? || raw
       capture = mvoid ? "" : "__retval := "
 
       if static
@@ -113,11 +131,13 @@ module Collar
         f << "  #{capture}__self #{ooc_name}(#{arglist})"
       end
 
-      if mvoid
-        f << "  return 0"
-      else
-        f << push_something("__retval", mdef.returnTypeFqn)
-        f << "  return 1"
+      unless raw
+        if mvoid
+          f << "  return 0"
+        else
+          f << push_something("__retval", mdef.returnTypeFqn)
+          f << "  return 1"
+        end
       end
       f << "}"
       f.nl
