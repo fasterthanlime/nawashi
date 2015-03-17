@@ -148,7 +148,9 @@ module Collar
         f.write "  #{mangled_name}(#{arglist.join(', ')}): "
       end
 
-      if mdef.returnTypeFqn
+      if raw
+        f.write "any"
+      elsif mdef.returnTypeFqn
         f.write type_to_ts(mdef.returnTypeFqn)
       else
         f.write "void"
