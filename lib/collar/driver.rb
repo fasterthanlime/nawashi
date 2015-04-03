@@ -106,14 +106,23 @@ module Collar
       end
       info "Packages: #{packages.keys.join(", ")}"
 
+      tspath = @opts[:typescript]
+      tsdir = tspath.split("/").last
+
       packages.each do |name, components|
-        f = Fool.new("#{@opts[:typescript]}/#{name}.ts")
+        f = Fool.new("#{tspath}/#{name}.ts")
         components.each do |comp|
           name = comp.split('/').drop(1).join('_')
           f << "export import #{name} = require(\"./#{comp}\");"
         end
         f.close
       end
+
+      f = Fool.new("#{tspath}.ts")
+      packages.each do |name, components|
+        f << "export import #{name} = require(\"#{tsdir}/#{name}\")"
+      end
+      f.close
     end
 
     def get_jsons
