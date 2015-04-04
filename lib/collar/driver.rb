@@ -96,9 +96,11 @@ module Collar
     private
 
     def make_packages!(registry)
+      toplevels = Set.new()
       packages = {}
       registry.specs.each do |spec|
         path = spec.path.split("/").first
+        toplevels << path
         next if registry.spec_paths.include?(path)
 
         packages[path] ||= []
@@ -119,7 +121,7 @@ module Collar
       end
 
       f = Fool.new("#{tspath}.ts")
-      packages.each do |name, components|
+      toplevels.each do |name|
         f << "export import #{name} = require(\"#{tsdir}/#{name}\")"
       end
       f.close
