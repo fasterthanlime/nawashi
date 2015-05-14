@@ -11,7 +11,6 @@ require 'nawashi/registry'
 
 module Nawashi
   class Driver
-    include Nawashi::Prelude
     include Nawashi::Logger
 
     TMP_DIR = '.nawashi-cache'
@@ -30,12 +29,12 @@ module Nawashi
 
       ext = Fool.new("#{@opts[:output]}/extensions.ooc")
       ext << AUTOGEN_NOTICE
-      ext << "use nawashi"
-      ext << "import nawashi"
+      ext << PRELUDE
       ext.close
 
       f = Fool.new("#{@opts[:output]}/autobindings.ooc")
       f << AUTOGEN_NOTICE
+      f << PRELUDE
 
       f << "//---- Universe deps start ----"
       f.write File.read(@universe).strip

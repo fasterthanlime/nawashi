@@ -8,7 +8,6 @@ require 'nawashi/logger'
 
 module Nawashi
   class Translator
-    include Nawashi::Prelude
     include Nawashi::Types
     include Nawashi::Mangler
     include Nawashi::Blacklist
@@ -30,6 +29,7 @@ module Nawashi
       f = Fool.new("#{@opts[:output]}/#{@import_path}.ooc")
 
       f << AUTOGEN_NOTICE
+      f << PRELUDE
       f << "import duk/tape, nawashi/extensions"
       f << "import #{@spec.path}"
       f.nl
@@ -263,7 +263,9 @@ module Nawashi
         tmp << "}\n"
       elsif type_is_ptr?(type)
         inner = ptr_type_parse(type)
-        tmp << "#{lhs}: #{type_to_ooc(inner)}*\n"
+        unless / /.match(lhs)
+          tmp << "#{lhs}: #{type_to_ooc(inner)}*\n"
+        end
         tmp << "{ // array of #{inner}\n"
         tmp << "  duk requireObjectCoercible(#{index})\n"
         tmp << "  duk getPropString(#{index}, \"length\")\n"
