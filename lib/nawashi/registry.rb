@@ -2,11 +2,11 @@
 require 'versionomy'
 require 'set'
 
-require 'collar/logger'
+require 'nawashi/logger'
 
-module Collar
+module Nawashi
   class Registry
-    include Collar::Logger
+    include Nawashi::Logger
 
     attr_reader :specs
     attr_reader :all_specs
@@ -69,7 +69,7 @@ module Collar
 
       version = Versionomy.parse(spec.version)
       if version < MIN_JSON_VERSION
-        bail "#{path}: v#{version} but collar needs >= v#{MIN_JSON_VERSION}".red
+        bail "#{path}: v#{version} but nawashi needs >= v#{MIN_JSON_VERSION}".red
       end
 
       true

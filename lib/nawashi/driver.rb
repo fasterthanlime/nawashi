@@ -2,19 +2,19 @@
 require 'json'
 require 'hashie'
 
-require 'collar/prelude'
-require 'collar/fool'
-require 'collar/translator'
-require 'collar/type_scriptor'
-require 'collar/logger'
-require 'collar/registry'
+require 'nawashi/prelude'
+require 'nawashi/fool'
+require 'nawashi/translator'
+require 'nawashi/type_scriptor'
+require 'nawashi/logger'
+require 'nawashi/registry'
 
-module Collar
+module Nawashi
   class Driver
-    include Collar::Prelude
-    include Collar::Logger
+    include Nawashi::Prelude
+    include Nawashi::Logger
 
-    TMP_DIR = '.collar-cache'
+    TMP_DIR = '.nawashi-cache'
 
     def initialize(opts, universe)
       @opts = opts
@@ -30,11 +30,11 @@ module Collar
 
       ext = Fool.new("#{@opts[:output]}/extensions.ooc")
       ext << AUTOGEN_NOTICE
-      ext << PRELUDE
+      ext << "use nawashi"
+      ext << "import nawashi"
       ext.close
 
       f = Fool.new("#{@opts[:output]}/autobindings.ooc")
-
       f << AUTOGEN_NOTICE
 
       f << "//---- Universe deps start ----"
@@ -44,7 +44,7 @@ module Collar
       f.nl
 
       f << "use duktape"
-      f << "import duk/tape, collar/extensions"
+      f << "import duk/tape, nawashi/extensions"
       
       all_specs = jsons.map do |path|
         Hashie::Mash.new(JSON.load(File.read(path)))
@@ -58,11 +58,11 @@ module Collar
       inheritance_chains = []
 
       registry.specs.each do |spec|
-        tr = Collar::Translator.new(@opts, spec, all_bindings, inheritance_chains, registry)
+        tr = Nawashi::Translator.new(@opts, spec, all_bindings, inheritance_chains, registry)
         tr.translate
 
         if @opts[:typescript]
-          ts = Collar::TypeScriptor.new(@opts, spec, registry)
+          ts = Nawashi::TypeScriptor.new(@opts, spec, registry)
           ts.typescriptize
         end
 

@@ -1,18 +1,18 @@
 
-require 'collar/prelude'
-require 'collar/types'
-require 'collar/mangler'
-require 'collar/fool'
-require 'collar/blacklist'
-require 'collar/logger'
+require 'nawashi/prelude'
+require 'nawashi/types'
+require 'nawashi/mangler'
+require 'nawashi/fool'
+require 'nawashi/blacklist'
+require 'nawashi/logger'
 
-module Collar
+module Nawashi
   class Translator
-    include Collar::Prelude
-    include Collar::Types
-    include Collar::Mangler
-    include Collar::Blacklist
-    include Collar::Logger
+    include Nawashi::Prelude
+    include Nawashi::Types
+    include Nawashi::Mangler
+    include Nawashi::Blacklist
+    include Nawashi::Logger
 
     attr_reader :import_path
 
@@ -30,7 +30,7 @@ module Collar
       f = Fool.new("#{@opts[:output]}/#{@import_path}.ooc")
 
       f << AUTOGEN_NOTICE
-      f << "import duk/tape, collar/extensions"
+      f << "import duk/tape, nawashi/extensions"
       f << "import #{@spec.path}"
       f.nl
 

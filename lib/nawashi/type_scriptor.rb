@@ -1,15 +1,15 @@
 
-require 'collar/fool'
-require 'collar/blacklist'
-require 'collar/types'
-require 'collar/logger'
+require 'nawashi/fool'
+require 'nawashi/blacklist'
+require 'nawashi/types'
+require 'nawashi/logger'
 
-module Collar
+module Nawashi
   class TypeScriptor
-    include Collar::Mangler
-    include Collar::Blacklist
-    include Collar::Types
-    include Collar::Logger
+    include Nawashi::Mangler
+    include Nawashi::Blacklist
+    include Nawashi::Types
+    include Nawashi::Logger
   
     def initialize(opts, spec, registry)
       @opts = opts

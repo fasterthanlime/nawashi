@@ -1,0 +1,4 @@
+Name: Nawashi
+Description: ooc<->duktape bridge
+Requires: duktape
+SourcePath: source

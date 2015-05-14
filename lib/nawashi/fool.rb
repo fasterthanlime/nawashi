@@ -1,7 +1,7 @@
 
 require 'fileutils'
 
-module Collar
+module Nawashi
   class Fool
     def initialize(path)
       @path = path

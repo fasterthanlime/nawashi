@@ -1,16 +1,16 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'collar/version'
+require 'nawashi/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "collar"
-  spec.version       = Collar::VERSION
+  spec.name          = "nawashi"
+  spec.version       = Nawashi::VERSION
   spec.authors       = ["Amos Wenger"]
   spec.email         = ["fasterthanlime@gmail.com"]
   spec.summary       = %q{Generate duktape bindings for ooc code}
   spec.description   = %q{Uses rock's JSON backend to generate boilerplate for the Duktape JavaScript engine}
-  spec.homepage      = "https://github.com/fasterthanlime/collar"
+  spec.homepage      = "https://github.com/fasterthanlime/nawashi"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0")

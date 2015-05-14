@@ -1,7 +1,7 @@
 
 require 'hashie'
 
-module Collar
+module Nawashi
   module Types
     INT_TYPE_RE = /^(U|S)?(Int|Short|Long|SizeT)(8|16|32|64|128)?$/
     NUM_TYPE_RE = /^(Cp)?(Float|Double)(32|64|128)?$/

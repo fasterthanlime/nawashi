@@ -1,5 +1,5 @@
 
-module Collar
+module Nawashi
   module Mangler
     def unmangle(name)
       name.gsub(/__bang(~.+)?/, '!').gsub(/__quest(~.+)?/, '?')

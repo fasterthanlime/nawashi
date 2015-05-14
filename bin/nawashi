@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require 'nawashi/cli'
+
+Nawashi::CLI.new
+

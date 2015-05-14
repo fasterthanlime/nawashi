@@ -1,9 +1,9 @@
 
 require 'colorize'
 
-module Collar
+module Nawashi
   module Logger
-    DEBUG = ENV['COLLAR_DEBUG']
+    DEBUG = ENV['NAWASHI_DEBUG']
 
     def bail(msg)
       puts "☂ #{msg}".red
