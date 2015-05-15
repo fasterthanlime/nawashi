@@ -52,7 +52,14 @@ module Nawashi
     def translate_cover(f, cv)
       short_name = cv[1].name
       long_name = "#{@spec.path.gsub('/', '_')}__#{cv[1].name}"
-      f << "class #{long_name} {};"
+      f << "class #{long_name} {"
+      cv[1].members.each do |mb|
+        case mb[1].type
+        when 'field'
+          translate_field(f, mb[1])
+        end
+      end
+      f << "};"
       f << "export class #{short_name} extends #{long_name} {};"
     end
 
@@ -84,7 +91,7 @@ module Nawashi
         end
       end
 
-      f<< "export interface #{class_long_name}_static {"
+      f << "export interface #{class_long_name}_static {"
       static_members.each { |mb| translate_member(f, mb) }
       f << "};"
       f.nl
