@@ -51,7 +51,7 @@ extend DukContext {
           if (!protoName) {
             // try looking it up then.
             clazz := obj class
-            protoName := DUK_PROTO_CACHE get(clazz)
+            protoName = DUK_PROTO_CACHE get(clazz)
 
             if (!protoName) {
                 // couldn't find it by any means :(
