@@ -54,8 +54,7 @@ module Nawashi
       long_name = "#{@spec.path.gsub('/', '_')}__#{cv[1].name}"
       f << "class #{long_name} {"
       cv[1].members.each do |mb|
-        case mb[1].type
-        when 'field'
+        if mb[1].type == 'field' and mb[1].propertyData.nil?
           translate_field(f, mb[1])
         end
       end
