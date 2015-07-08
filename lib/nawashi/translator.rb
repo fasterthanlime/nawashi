@@ -213,7 +213,8 @@ module Nawashi
       td = @registry.type_catalog[type]
       if td && compound_cover?(td)
         tmp << "#{lhs}: #{type_to_ooc(type)}\n"
-        fields = td[1].members.select { |x| x[1].type == 'field' }
+        fields = td[1].members.select { |x| x[1].type == 'field' and x[1].propertyData.nil? }
+
         tmp << "{ // #{type} {#{fields.map(&:first).join(', ')}}\n"
         tmp << "  duk requireObjectCoercible(#{index})\n"
         fields.each do |fd|
@@ -299,7 +300,8 @@ module Nawashi
       tmp = ""
       td = @registry.type_catalog[type]
       if td && compound_cover?(td)
-        fields = td[1].members.select { |x| x[1].type == 'field' }
+        fields = td[1].members.select { |x| x[1].type == 'field' and x[1].propertyData.nil? }
+
         tmp << "{ // #{type} {#{fields.map(&:first).join(', ')}}\n"
         tmp << "  objIdx := duk pushObject()\n"
 
