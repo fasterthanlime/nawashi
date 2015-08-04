@@ -210,7 +210,7 @@ module Nawashi
     def require_something(lhs, type, level: 1, index: 0, mode: :declare)
       tmp = ""
 
-      td = @registry.type_catalog[type]
+      td = @registry.type_catalog[strip_generics(type)]
       if td && compound_cover?(td)
         tmp << "#{lhs}: #{type_to_ooc(type)}\n"
         fields = td[1].members.select { |x| x[1].type == 'field' and x[1].propertyData.nil? }
@@ -298,7 +298,7 @@ module Nawashi
 
     def push_something(rhs, type, level: 1)
       tmp = ""
-      td = @registry.type_catalog[type]
+      td = @registry.type_catalog[strip_generics(type)]
       if td && compound_cover?(td)
         fields = td[1].members.select { |x| x[1].type == 'field' and x[1].propertyData.nil? }
 
@@ -316,7 +316,7 @@ module Nawashi
         case duked
         when 'Ooc'
           # Pass class name for reverse lookup
-          tmp << "duk push#{duked}(#{rhs}, \"#{type}\")\n"
+          tmp << "duk push#{duked}(#{rhs} as Pointer, \"#{type}\")\n"
         when 'Int'
           # Enums might need casting to int
           tmp << "duk push#{duked}(#{rhs} as Int)\n"
@@ -330,6 +330,8 @@ module Nawashi
     end
 
     def type_to_duk(type)
+      type = strip_generics(type)
+
       case type
       when INT_TYPE_RE
         "Int"
@@ -347,7 +349,7 @@ module Nawashi
         tokens = type.split('__')
         
         if tokens.length == 2
-          td = @registry.type_catalog[type]
+          td = @registry.type_catalog[strip_generics(type)]
           if td && td[1].type == 'enum'
             return "Int"
           end

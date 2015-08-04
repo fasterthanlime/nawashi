@@ -7,6 +7,7 @@ module Nawashi
     NUM_TYPE_RE = /^(Cp)?(Float|Double)(32|64|128)?$/
     PTR_TYPE_RE = /^pointer\(.*\)$/
     FUN_TYPE_RE = /^Func\(.*\)$/
+    GEN_TYPE_RE = /([A-Za-z0-9_]+)(<.+>)/
 
     def type_is_ptr?(type)
       type =~ PTR_TYPE_RE
@@ -52,11 +53,23 @@ module Nawashi
     end
 
     def type_to_ooc(type)
-      type
-        .gsub(/^([A-Za-z0-9_]+)__([A-Za-z0-9_]+)$/) { type_to_ooc($2) }
-        .gsub(/pointer\(([^\)]*?)\)/) { "#{type_to_ooc($1)}*" }
-        .gsub(/array\((.+)\)/) { "#{type_to_ooc($1)}[]" }
-        .gsub(/Func\(arguments\((.+)\)\)/) { "Func(#{$1})" }
+      if matches = type.match(GEN_TYPE_RE)
+        return "#{type_to_ooc(matches[1])}#{matches[2]}"
+      else
+        return type
+          .gsub(/^([A-Za-z0-9_]+)__([A-Za-z0-9_]+)$/) { type_to_ooc($2) }
+          .gsub(/pointer\(([^\)]*?)\)/) { "#{type_to_ooc($1)}*" }
+          .gsub(/array\((.+)\)/) { "#{type_to_ooc($1)}[]" }
+          .gsub(/Func\(arguments\((.+)\)\)/) { "Func(#{$1})" }
+      end
+    end
+
+    def strip_generics(type)
+      if matches = type.match(GEN_TYPE_RE)
+        return matches[1]
+      else
+        return type
+      end
     end
 
     def supported_type?(type)

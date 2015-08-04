@@ -13,7 +13,7 @@ module Nawashi
     attr_reader :spec_paths
     attr_reader :type_catalog
 
-    MIN_JSON_VERSION = Versionomy.parse("2.0.0")
+    MIN_JSON_VERSION = Versionomy.parse("2.1.0")
 
     def initialize(opts, universe, all_specs)
       @opts = opts

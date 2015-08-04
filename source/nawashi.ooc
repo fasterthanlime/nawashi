@@ -36,7 +36,8 @@ extend DukContext {
         res
     }
 
-    pushOoc: func (obj: Object, protoName: String = null)  {
+    pushOoc: func (ptr: Pointer, protoName: String = null)  {
+        obj := ptr as Object
         objIdx := pushObject()
 
         if (obj != null) {
